@@ -1,0 +1,20 @@
+name: flutter_survey_js
+description: "A Flutter package that renders SurveyJS JSON as native Flutter widgets. Pure Dart — no JavaScript bridge required."
+version: 0.1.0
+homepage: https://github.com/YOUR_USERNAME/flutter_survey_js
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  # No assets needed — pure Dart package
