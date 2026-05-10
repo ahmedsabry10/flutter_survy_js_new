@@ -1,16 +1,18 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
 /// Represents a single uploaded file — same structure as SurveyJS web.
-/// [content] is base64-encoded file data (optional, set after upload).
+/// [content] holds a base64 data-URL ("data:image/png;base64,...") right after
+/// picking, and may be replaced by a server URL after [OnUploadFile] runs.
 class SurveyFile {
   final String name;
   final String type; // MIME type e.g. "image/jpeg"
   final int? size; // bytes
-  final String? content; // base64 string or URL after upload
-  final dynamic raw; // original platform file object (File, XFile, PlatformFile, etc.)
+  final String? content; // data-URL or server URL
+  final dynamic raw; // original PlatformFile (has .bytes, .path, etc.)
 
   const SurveyFile({
     required this.name,
@@ -39,14 +41,13 @@ class SurveyFile {
 }
 
 /// Called when the user selects files to upload.
-/// Return the same list with [SurveyFile.content] populated after upload.
-/// Throw to cancel / show error.
+/// Each [SurveyFile] already has [content] set to a base64 data-URL so you
+/// can show a preview. Replace [content] with your server URL and return.
 typedef OnUploadFile = Future<List<SurveyFile>> Function(
   List<SurveyFile> files,
 );
 
 /// Called when the user taps download on a file.
-/// [file] contains the name, type, and content/URL.
 typedef OnDownloadFile = Future<void> Function(SurveyFile file);
 
 /// Called when the user removes a file.
@@ -55,40 +56,12 @@ typedef OnClearFile = Future<bool> Function(SurveyFile file);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Renders a SurveyJS `file` question with full upload/download/clear support.
-///
-/// Wire the three callbacks to your backend or file picker:
-///
-/// ```dart
-/// FileQuestion(
-///   question: q,
-///   onChanged: (files) => controller.setAnswer(q.name, files),
-///   onUploadFile: (files) async {
-///     // e.g. upload to S3 and return files with content = URL
-///     final uploaded = await myApi.upload(files);
-///     return uploaded;
-///   },
-///   onDownloadFile: (file) async {
-///     await launchUrl(Uri.parse(file.content!));
-///   },
-///   onClearFile: (file) async {
-///     await myApi.delete(file.name);
-///     return true; // confirm removal
-///   },
-/// )
-/// ```
 class FileQuestion extends StatefulWidget {
   final QuestionModel question;
   final List<SurveyFile> currentFiles;
   final ValueChanged<List<SurveyFile>> onChanged;
-
-  /// Called when user picks files. Upload them here and return with content set.
   final OnUploadFile? onUploadFile;
-
-  /// Called when user taps the download icon on a file.
   final OnDownloadFile? onDownloadFile;
-
-  /// Called when user taps the remove icon. Return true to confirm removal.
   final OnClearFile? onClearFile;
 
   /// Optional override: open your own picker instead of the built-in one.
@@ -117,7 +90,6 @@ class _FileQuestionState extends State<FileQuestion> {
   bool _uploading = false;
   String? _errorMessage;
 
-  // Track which files are downloading / being cleared
   final Set<String> _downloading = {};
   final Set<String> _clearing = {};
 
@@ -135,49 +107,21 @@ class _FileQuestionState extends State<FileQuestion> {
     }
   }
 
-  // ─── Pick files using file_picker ─────────────────────────────────────────
+  // ─── Pick ─────────────────────────────────────────────────────────────────
 
   Future<void> _pickAndUpload() async {
     if (!widget.enabled || _uploading) return;
 
-    // If consumer supplied their own picker, use it
     if (widget.onPickFiles != null) {
       widget.onPickFiles!();
       return;
     }
 
-    // Build allowed extensions from acceptedTypes (e.g. "image/jpeg" → "jpg")
+    // Build allowed extensions from acceptedTypes
     final accepted = widget.question.acceptedTypes;
     List<String>? extensions;
     if (accepted != null && accepted.isNotEmpty) {
-      extensions = accepted
-          .map((mime) {
-            switch (mime.toLowerCase()) {
-              case 'image/jpeg':
-                return 'jpg';
-              case 'image/png':
-                return 'png';
-              case 'image/gif':
-                return 'gif';
-              case 'image/webp':
-                return 'webp';
-              case 'application/pdf':
-                return 'pdf';
-              case 'application/msword':
-                return 'doc';
-              case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-                return 'docx';
-              case 'video/mp4':
-                return 'mp4';
-              case 'audio/mpeg':
-                return 'mp3';
-              default:
-                // fallback: take the part after "/"
-                return mime.split('/').last;
-            }
-          })
-          .toSet()
-          .toList();
+      extensions = accepted.map(_extFromMime).toSet().toList();
     }
 
     FilePickerResult? result;
@@ -190,54 +134,65 @@ class _FileQuestionState extends State<FileQuestion> {
         allowedExtensions: (extensions != null && extensions.isNotEmpty)
             ? extensions
             : null,
-        withData: true, // load bytes into memory
+        withData: true, // ← loads bytes so we can build a data-URL
       );
     } catch (e) {
-      if (mounted) {
-        setState(() => _errorMessage = 'Could not open file picker: $e');
-      }
+      if (mounted) setState(() => _errorMessage = 'Could not open picker: $e');
       return;
     }
 
-    if (result == null || result.files.isEmpty) return; // user cancelled
+    if (result == null || result.files.isEmpty) return;
 
+    // Build SurveyFile list with a base64 data-URL set immediately
     final picked = result.files.map((pf) {
+      final mime = _mimeFromExtension(pf.extension ?? '');
+      String? dataUrl;
+      if (pf.bytes != null && pf.bytes!.isNotEmpty) {
+        final b64 = base64Encode(pf.bytes!);
+        dataUrl = 'data:$mime;base64,$b64';
+      }
       return SurveyFile(
         name: pf.name,
-        type: _mimeFromExtension(pf.extension ?? ''),
+        type: mime,
         size: pf.size,
-        content: null, // will be populated by onUploadFile
-        raw: pf,       // original PlatformFile — consumer can read pf.bytes
+        content: dataUrl, // ← real image data available immediately
+        raw: pf,
       );
     }).toList();
 
     await _handleUpload(picked);
   }
 
-  /// Map a file extension to a MIME type string.
+  String _extFromMime(String mime) {
+    switch (mime.toLowerCase()) {
+      case 'image/jpeg': return 'jpg';
+      case 'image/png':  return 'png';
+      case 'image/gif':  return 'gif';
+      case 'image/webp': return 'webp';
+      case 'application/pdf': return 'pdf';
+      case 'application/msword': return 'doc';
+      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        return 'docx';
+      case 'video/mp4':  return 'mp4';
+      case 'audio/mpeg': return 'mp3';
+      default: return mime.split('/').last;
+    }
+  }
+
   String _mimeFromExtension(String ext) {
     switch (ext.toLowerCase()) {
       case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'pdf':
-        return 'application/pdf';
-      case 'doc':
-        return 'application/msword';
+      case 'jpeg': return 'image/jpeg';
+      case 'png':  return 'image/png';
+      case 'gif':  return 'image/gif';
+      case 'webp': return 'image/webp';
+      case 'pdf':  return 'application/pdf';
+      case 'doc':  return 'application/msword';
       case 'docx':
         return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'mp4':
-        return 'video/mp4';
-      case 'mp3':
-        return 'audio/mpeg';
-      default:
-        return 'application/octet-stream';
+      case 'mp4':  return 'video/mp4';
+      case 'mp3':  return 'audio/mpeg';
+      default:     return 'application/octet-stream';
     }
   }
 
@@ -254,17 +209,33 @@ class _FileQuestionState extends State<FileQuestion> {
       List<SurveyFile> result;
 
       if (widget.onUploadFile != null) {
-        // Let the consumer upload and return enriched files
         result = await widget.onUploadFile!(picked);
       } else {
-        // No upload handler — just store the raw files as-is
+        // No upload handler — keep the base64 data-URL as content
         result = picked;
       }
 
+      // If onUploadFile replaced content with a server URL, keep it.
+      // If it returned null content, fall back to the original data-URL.
+      final merged = result.asMap().entries.map((e) {
+        final returned = e.value;
+        final original = picked.length > e.key ? picked[e.key] : null;
+        if (returned.content == null && original?.content != null) {
+          return SurveyFile(
+            name: returned.name,
+            type: returned.type,
+            size: returned.size,
+            content: original!.content, // restore data-URL preview
+            raw: returned.raw ?? original.raw,
+          );
+        }
+        return returned;
+      }).toList();
+
       if (widget.question.allowMultiple == true) {
-        _files = [..._files, ...result];
+        _files = [..._files, ...merged];
       } else {
-        _files = [result.first];
+        _files = [merged.first];
       }
 
       widget.onChanged(_files);
@@ -329,7 +300,6 @@ class _FileQuestionState extends State<FileQuestion> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Upload zone
         if (widget.enabled && canAddMore)
           _UploadZone(
             uploading: _uploading,
@@ -338,7 +308,6 @@ class _FileQuestionState extends State<FileQuestion> {
             onTap: _pickAndUpload,
           ),
 
-        // Error message
         if (_errorMessage != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -347,13 +316,11 @@ class _FileQuestionState extends State<FileQuestion> {
                 Icon(Icons.error_outline, size: 14, color: theme.errorColor),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(_errorMessage!, style: theme.errorTextStyle),
-                ),
+                    child: Text(_errorMessage!, style: theme.errorTextStyle)),
               ],
             ),
           ),
 
-        // File list
         if (_files.isNotEmpty) ...[
           const SizedBox(height: 10),
           ..._files.map((file) => _FileItem(
@@ -411,18 +378,13 @@ class _UploadZone extends StatelessWidget {
                     width: 28,
                     height: 28,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: theme.primaryColor,
-                    ),
+                        strokeWidth: 2.5, color: theme.primaryColor),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Uploading...',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text('Uploading...',
+                      style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w500)),
                 ],
               )
             : Column(
@@ -431,20 +393,15 @@ class _UploadZone extends StatelessWidget {
                   Icon(Icons.cloud_upload_outlined,
                       size: 36, color: theme.primaryColor),
                   const SizedBox(height: 8),
-                  Text(
-                    'Tap to upload',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
+                  Text('Tap to upload',
+                      style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15)),
                   if (accepted != null) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      'Accepted: $accepted',
-                      style: theme.questionDescriptionStyle,
-                    ),
+                    Text('Accepted: $accepted',
+                        style: theme.questionDescriptionStyle),
                   ],
                 ],
               ),
@@ -476,6 +433,9 @@ class _FileItem extends StatelessWidget {
     required this.onClear,
   });
 
+  /// Returns true if [content] is a base64 data-URL (not an http URL).
+  bool get _isDataUrl => file.content?.startsWith('data:') == true;
+
   @override
   Widget build(BuildContext context) {
     final isImage = file.type.startsWith('image/');
@@ -489,29 +449,37 @@ class _FileItem extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Image preview
+          // ── Image preview ──────────────────────────────────────────────
           if (isImage && file.content != null)
             ClipRRect(
               borderRadius: BorderRadius.only(
                 topLeft: theme.inputBorderRadius.topLeft,
                 topRight: theme.inputBorderRadius.topRight,
               ),
-              child: Image.network(
-                file.content!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
+              child: _isDataUrl
+                  // base64 data-URL → decode and show with Image.memory
+                  ? Image.memory(
+                      base64Decode(file.content!.split(',').last),
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    )
+                  // http(s) URL → use Image.network
+                  : Image.network(
+                      file.content!,
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
             ),
 
-          // File row
+          // ── File row ───────────────────────────────────────────────────
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // File icon
                 Container(
                   width: 36,
                   height: 36,
@@ -519,36 +487,25 @@ class _FileItem extends StatelessWidget {
                     color: theme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    _iconFor(file.type),
-                    size: 18,
-                    color: theme.primaryColor,
-                  ),
+                  child: Icon(_iconFor(file.type),
+                      size: 18, color: theme.primaryColor),
                 ),
                 const SizedBox(width: 10),
-
-                // Name + size
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        file.name,
-                        style: theme.inputTextStyle
-                            .copyWith(fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(file.name,
+                          style: theme.inputTextStyle
+                              .copyWith(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis),
                       if (file.size != null)
-                        Text(
-                          _formatSize(file.size!),
-                          style: theme.questionDescriptionStyle
-                              .copyWith(fontSize: 11),
-                        ),
+                        Text(_formatSize(file.size!),
+                            style: theme.questionDescriptionStyle
+                                .copyWith(fontSize: 11)),
                     ],
                   ),
                 ),
-
-                // Download button
                 if (canDownload)
                   _ActionButton(
                     loading: isDownloading,
@@ -556,10 +513,7 @@ class _FileItem extends StatelessWidget {
                     color: theme.primaryColor,
                     onTap: onDownload,
                   ),
-
                 const SizedBox(width: 4),
-
-                // Clear button
                 if (enabled)
                   _ActionButton(
                     loading: isClearing,
@@ -591,9 +545,7 @@ class _FileItem extends StatelessWidget {
 
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
@@ -623,8 +575,8 @@ class _ActionButton extends StatelessWidget {
         child: loading
             ? Padding(
                 padding: const EdgeInsets.all(6),
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: color),
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: color),
               )
             : Icon(icon, size: 20, color: color),
       ),
