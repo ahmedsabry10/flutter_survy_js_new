@@ -216,7 +216,9 @@ class QuestionModel {
       imageHeight: json['imageHeight']?.toString(),
       imageWidth: json['imageWidth']?.toString(),
       allowMultiple: json['allowMultiple'] as bool?,
-      acceptedTypes: (json['acceptedTypes'] as String?)?.split(','),
+      acceptedTypes: json['acceptedTypes'] is List
+          ? List<String>.from(json['acceptedTypes'] as List)
+          : (json['acceptedTypes'] as String?)?.split(','),
       maxSize: json['maxSize'] as num?,
       labelTrue: json['labelTrue'] as String?,
       labelFalse: json['labelFalse'] as String?,

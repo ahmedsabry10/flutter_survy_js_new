@@ -1,17 +1,3 @@
-/// survey_js_flutter
-///
-/// A Flutter package that renders SurveyJS JSON as native Flutter widgets.
-/// Pure Dart — no JavaScript bridge required.
-///
-/// ## Quick start
-/// ```dart
-/// import 'package:survey_js_flutter/survey_js_flutter.dart';
-///
-/// SurveyWidget(
-///   survey: surveyFromJson(myJsonMap),
-///   onSubmit: (answers) => print(answers),
-/// )
-/// ```
 library survey_js_flutter;
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
