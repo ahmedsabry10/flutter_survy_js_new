@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/survey_model.dart';
 import '../models/question_model.dart';
+import '../validators/survey_validator.dart';
 
 /// Manages the entire state of a running survey:
 /// - current answers

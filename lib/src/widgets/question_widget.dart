@@ -20,18 +20,22 @@ import 'signature_pad_question.dart';
 import 'file_question.dart';
 
 /// Dispatches to the correct widget based on [question.type].
-/// Reads answers and errors from [SurveyController].
-/// Handles visibility/enabled logic before rendering.
 class QuestionWidget extends StatelessWidget {
   final QuestionModel question;
   final SurveyController controller;
   final int? questionNumber;
+  final OnUploadFile? onUploadFile;
+  final OnDownloadFile? onDownloadFile;
+  final OnClearFile? onClearFile;
 
   const QuestionWidget({
     super.key,
     required this.question,
     required this.controller,
     this.questionNumber,
+    this.onUploadFile,
+    this.onDownloadFile,
+    this.onClearFile,
   });
 
   @override
@@ -213,10 +217,15 @@ class QuestionWidget extends StatelessWidget {
         return FileQuestion(
           question: question,
           currentFiles: answer is List
-              ? List<Map<String, dynamic>>.from(
-                  (answer as List).map((e) => Map<String, dynamic>.from(e as Map)))
+              ? List<SurveyFile>.from(
+                  (answer as List).map((e) => e is SurveyFile
+                      ? e
+                      : SurveyFile.fromJson(Map<String, dynamic>.from(e as Map))))
               : [],
           enabled: enabled,
+          onUploadFile: onUploadFile,
+          onDownloadFile: onDownloadFile,
+          onClearFile: onClearFile,
           onChanged: (v) => controller.setAnswer(question.name, v),
         );
 

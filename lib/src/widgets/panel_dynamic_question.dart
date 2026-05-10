@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 import '../controller/survey_controller.dart';
+import 'question_widget.dart';
 
 /// Renders a SurveyJS `paneldynamic` question.
 ///

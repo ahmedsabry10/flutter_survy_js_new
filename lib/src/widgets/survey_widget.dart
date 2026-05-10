@@ -3,6 +3,7 @@ import '../models/survey_model.dart';
 import '../controller/survey_controller.dart';
 import '../theme/survey_theme.dart';
 import 'question_widget.dart';
+import 'file_question.dart';
 
 /// The main widget. Drop it anywhere in your widget tree.
 ///
@@ -15,9 +16,25 @@ import 'question_widget.dart';
 class SurveyWidget extends StatefulWidget {
   final SurveyModel survey;
   final SurveyTheme? theme;
+
+  // ─── Survey callbacks ─────────────────────────────────────────────────────
   final ValueChanged<Map<String, dynamic>>? onSubmit;
   final ValueChanged<Map<String, dynamic>>? onChange;
   final VoidCallback? onComplete;
+
+  // ─── File callbacks (mirrors SurveyJS web API) ────────────────────────────
+
+  /// Called when user picks files. Upload them here and return with content set.
+  /// Same as SurveyJS `onUploadFiles` event.
+  final OnUploadFile? onUploadFile;
+
+  /// Called when user taps the download icon on a file.
+  /// Same as SurveyJS `onDownloadFile` event.
+  final OnDownloadFile? onDownloadFile;
+
+  /// Called when user removes a file. Return true to confirm removal.
+  /// Same as SurveyJS `onClearFiles` event.
+  final OnClearFile? onClearFile;
 
   const SurveyWidget({
     super.key,
@@ -26,6 +43,9 @@ class SurveyWidget extends StatefulWidget {
     this.onSubmit,
     this.onChange,
     this.onComplete,
+    this.onUploadFile,
+    this.onDownloadFile,
+    this.onClearFile,
   });
 
   @override
@@ -73,6 +93,9 @@ class _SurveyWidgetState extends State<SurveyWidget> {
           return _SurveyBody(
             controller: _controller,
             theme: theme,
+            onUploadFile: widget.onUploadFile,
+            onDownloadFile: widget.onDownloadFile,
+            onClearFile: widget.onClearFile,
             onSubmit: () {
               widget.onSubmit?.call(_controller.answers);
               widget.onComplete?.call();
@@ -90,11 +113,17 @@ class _SurveyBody extends StatelessWidget {
   final SurveyController controller;
   final SurveyTheme theme;
   final VoidCallback onSubmit;
+  final OnUploadFile? onUploadFile;
+  final OnDownloadFile? onDownloadFile;
+  final OnClearFile? onClearFile;
 
   const _SurveyBody({
     required this.controller,
     required this.theme,
     required this.onSubmit,
+    this.onUploadFile,
+    this.onDownloadFile,
+    this.onClearFile,
   });
 
   @override
@@ -144,6 +173,9 @@ class _SurveyBody extends StatelessWidget {
                         question: question,
                         controller: controller,
                         questionNumber: survey.showQuestionNumbers ? index + 1 : null,
+                        onUploadFile: onUploadFile,
+                        onDownloadFile: onDownloadFile,
+                        onClearFile: onClearFile,
                       ),
                     );
                   }),
