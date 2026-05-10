@@ -11,6 +11,9 @@ import 'file_question.dart';
 /// SurveyWidget(
 ///   survey: surveyFromJson(myJson),
 ///   onSubmit: (answers) => print(answers),
+///   nextText: 'التالي',
+///   previousText: 'السابق',
+///   submitText: 'إرسال',
 /// )
 /// ```
 class SurveyWidget extends StatefulWidget {
@@ -22,19 +25,20 @@ class SurveyWidget extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>>? onChange;
   final VoidCallback? onComplete;
 
-  // ─── File callbacks (mirrors SurveyJS web API) ────────────────────────────
-
-  /// Called when user picks files. Upload them here and return with content set.
-  /// Same as SurveyJS `onUploadFiles` event.
+  // ─── File callbacks ───────────────────────────────────────────────────────
   final OnUploadFile? onUploadFile;
-
-  /// Called when user taps the download icon on a file.
-  /// Same as SurveyJS `onDownloadFile` event.
   final OnDownloadFile? onDownloadFile;
-
-  /// Called when user removes a file. Return true to confirm removal.
-  /// Same as SurveyJS `onClearFiles` event.
   final OnClearFile? onClearFile;
+
+  // ─── Button labels (optional — has defaults) ──────────────────────────────
+  /// نص زرار "التالي" — الافتراضي: 'Next'
+  final String? nextText;
+
+  /// نص زرار "السابق" — الافتراضي: 'Previous'
+  final String? previousText;
+
+  /// نص زرار "إرسال" — الافتراضي: 'Submit'
+  final String? submitText;
 
   const SurveyWidget({
     super.key,
@@ -46,6 +50,9 @@ class SurveyWidget extends StatefulWidget {
     this.onUploadFile,
     this.onDownloadFile,
     this.onClearFile,
+    this.nextText,
+    this.previousText,
+    this.submitText,
   });
 
   @override
@@ -96,6 +103,9 @@ class _SurveyWidgetState extends State<SurveyWidget> {
             onUploadFile: widget.onUploadFile,
             onDownloadFile: widget.onDownloadFile,
             onClearFile: widget.onClearFile,
+            nextText: widget.nextText ?? 'Next',
+            previousText: widget.previousText ?? 'Previous',
+            submitText: widget.submitText ?? 'Submit',
             onSubmit: () {
               widget.onSubmit?.call(_controller.answers);
               widget.onComplete?.call();
@@ -116,11 +126,17 @@ class _SurveyBody extends StatelessWidget {
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
   final OnClearFile? onClearFile;
+  final String nextText;
+  final String previousText;
+  final String submitText;
 
   const _SurveyBody({
     required this.controller,
     required this.theme,
     required this.onSubmit,
+    required this.nextText,
+    required this.previousText,
+    required this.submitText,
     this.onUploadFile,
     this.onDownloadFile,
     this.onClearFile,
@@ -136,11 +152,9 @@ class _SurveyBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Survey title + description (first page only)
           if (controller.isFirstPage && survey.title != null)
             _SurveyHeader(survey: survey, theme: theme),
 
-          // Progress bar
           if (survey.showProgressBar && survey.isMultiPage)
             _ProgressBar(
               progress: controller.progress,
@@ -149,21 +163,21 @@ class _SurveyBody extends StatelessWidget {
               totalPages: survey.pageCount,
             ),
 
-          // Questions
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Page title
                   if (page.title != null && page.title!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(page.title!, style: theme.surveyTitleStyle.copyWith(fontSize: 18)),
+                      child: Text(
+                        page.title!,
+                        style: theme.surveyTitleStyle.copyWith(fontSize: 18),
+                      ),
                     ),
 
-                  // Questions list
                   ...page.elements.asMap().entries.map((entry) {
                     final index = entry.key;
                     final question = entry.value;
@@ -172,7 +186,8 @@ class _SurveyBody extends StatelessWidget {
                       child: QuestionWidget(
                         question: question,
                         controller: controller,
-                        questionNumber: survey.showQuestionNumbers ? index + 1 : null,
+                        questionNumber:
+                            survey.showQuestionNumbers ? index + 1 : null,
                         onUploadFile: onUploadFile,
                         onDownloadFile: onDownloadFile,
                         onClearFile: onClearFile,
@@ -184,11 +199,13 @@ class _SurveyBody extends StatelessWidget {
             ),
           ),
 
-          // Navigation buttons
           _NavigationBar(
             controller: controller,
             theme: theme,
             onSubmit: onSubmit,
+            nextText: nextText,
+            previousText: previousText,
+            submitText: submitText,
           ),
         ],
       ),
@@ -254,7 +271,10 @@ class _ProgressBar extends StatelessWidget {
               ),
               Text(
                 '${(progress * 100).round()}%',
-                style: TextStyle(fontSize: 12, color: theme.primaryColor, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: theme.primaryColor,
+                    fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -276,11 +296,17 @@ class _NavigationBar extends StatelessWidget {
   final SurveyController controller;
   final SurveyTheme theme;
   final VoidCallback onSubmit;
+  final String nextText;
+  final String previousText;
+  final String submitText;
 
   const _NavigationBar({
     required this.controller,
     required this.theme,
     required this.onSubmit,
+    required this.nextText,
+    required this.previousText,
+    required this.submitText,
   });
 
   @override
@@ -295,7 +321,7 @@ class _NavigationBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Prev button
+          // Previous button
           if (!controller.isFirstPage && controller.survey.showPrevButton)
             Expanded(
               child: OutlinedButton(
@@ -308,7 +334,7 @@ class _NavigationBar extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Previous'),
+                child: Text(previousText), // ← dynamic
               ),
             ),
 
@@ -339,7 +365,7 @@ class _NavigationBar extends StatelessWidget {
                 elevation: 0,
               ),
               child: Text(
-                controller.isLastPage ? 'Submit' : 'Next',
+                controller.isLastPage ? submitText : nextText, // ← dynamic
                 style: theme.buttonTextStyle,
               ),
             ),
@@ -371,7 +397,8 @@ class _CompletedView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline_rounded, size: 72, color: theme.primaryColor),
+            Icon(Icons.check_circle_outline_rounded,
+                size: 72, color: theme.primaryColor),
             const SizedBox(height: 20),
             Text(
               message,
