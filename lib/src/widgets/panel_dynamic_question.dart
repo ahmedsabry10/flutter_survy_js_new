@@ -345,21 +345,220 @@ class _InlinePanelQuestion extends StatelessWidget {
 
   Widget _buildField(BuildContext context) {
     final answer = answers[question.name];
-    // Import individual widgets directly to avoid circular dependency
-    // with QuestionWidget (which needs a full SurveyController)
+
     switch (question.type.name) {
+      // ─── Text / Comment ───────────────────────────────────────────────────
       case 'text':
       case 'comment':
         return _SimpleTextField(
-            question: question,
-            answer: answer,
-            enabled: enabled,
-            theme: theme,
-            onChanged: onChanged);
+          question: question,
+          answer: answer,
+          enabled: enabled,
+          theme: theme,
+          onChanged: onChanged,
+        );
+
+      // ─── Boolean ──────────────────────────────────────────────────────────
+      case 'boolean':
+        final boolVal = answer is bool
+            ? answer
+            : answer?.toString() == 'true'
+                ? true
+                : answer?.toString() == 'false'
+                    ? false
+                    : null;
+        final falseLabel = question.labelFalse ?? 'No';
+        final trueLabel = question.labelTrue ?? 'Yes';
+        return Row(
+          children: [
+            GestureDetector(
+              onTap: enabled ? () => onChanged(false) : null,
+              child: Text(falseLabel,
+                  style: theme.choiceLabelStyle.copyWith(
+                    color: boolVal == false ? theme.primaryColor : theme.hintColor,
+                    fontWeight: boolVal == false ? FontWeight.w600 : FontWeight.normal,
+                  )),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: enabled
+                  ? () => onChanged(boolVal == true ? false : true)
+                  : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 26,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(13),
+                  color: boolVal == true
+                      ? theme.primaryColor
+                      : boolVal == false
+                          ? theme.hintColor
+                          : theme.disabledColor,
+                ),
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: boolVal == true
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.all(3),
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                        shape: BoxShape.circle, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: enabled ? () => onChanged(true) : null,
+              child: Text(trueLabel,
+                  style: theme.choiceLabelStyle.copyWith(
+                    color: boolVal == true ? theme.primaryColor : theme.hintColor,
+                    fontWeight: boolVal == true ? FontWeight.w600 : FontWeight.normal,
+                  )),
+            ),
+          ],
+        );
+
+      // ─── Radiogroup ───────────────────────────────────────────────────────
+      case 'radiogroup':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: question.choices.map((choice) {
+            final isSelected = answer?.toString() == choice.value;
+            return GestureDetector(
+              onTap: enabled ? () => onChanged(isSelected ? null : choice.value) : null,
+              child: Row(
+                children: [
+                  Radio<String>(
+                    value: choice.value,
+                    groupValue: answer?.toString(),
+                    onChanged: enabled ? (v) => onChanged(v) : null,
+                    activeColor: theme.primaryColor,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(choice.label, style: theme.choiceLabelStyle)),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+
+      // ─── Checkbox ─────────────────────────────────────────────────────────
+      case 'checkbox':
+        final currentVals = answer is List ? List<String>.from(answer) : <String>[];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: question.choices.map((choice) {
+            final isSelected = currentVals.contains(choice.value);
+            return GestureDetector(
+              onTap: enabled
+                  ? () {
+                      final updated = List<String>.from(currentVals);
+                      isSelected ? updated.remove(choice.value) : updated.add(choice.value);
+                      onChanged(updated);
+                    }
+                  : null,
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: enabled
+                        ? (_) {
+                            final updated = List<String>.from(currentVals);
+                            isSelected ? updated.remove(choice.value) : updated.add(choice.value);
+                            onChanged(updated);
+                          }
+                        : null,
+                    activeColor: theme.primaryColor,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(choice.label, style: theme.choiceLabelStyle)),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+
+      // ─── Dropdown ─────────────────────────────────────────────────────────
+      case 'dropdown':
+        final choices = question.choices;
+        final validValue = choices.any((c) => c.value == answer?.toString())
+            ? answer?.toString()
+            : null;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: theme.inputBorderRadius,
+            border: Border.all(color: theme.borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: validValue,
+              isExpanded: true,
+              hint: Text(question.placeholder ?? 'Select...',
+                  style: theme.inputTextStyle.copyWith(color: theme.hintColor)),
+              style: theme.inputTextStyle,
+              onChanged: enabled ? (v) => onChanged(v) : null,
+              items: choices
+                  .map((c) => DropdownMenuItem(
+                      value: c.value,
+                      child: Text(c.label, style: theme.inputTextStyle)))
+                  .toList(),
+            ),
+          ),
+        );
+
+      // ─── Rating ───────────────────────────────────────────────────────────
+      case 'rating':
+        final min = question.rateMin ?? 1;
+        final max = question.rateMax ?? 5;
+        final selected = answer is int ? answer : int.tryParse(answer?.toString() ?? '');
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: List.generate(max - min + 1, (i) {
+            final v = min + i;
+            final isSel = selected == v;
+            return GestureDetector(
+              onTap: enabled ? () => onChanged(isSel ? null : v) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isSel ? theme.primaryColor : Colors.transparent,
+                  border: Border.all(
+                      color: isSel ? theme.primaryColor : theme.borderColor,
+                      width: 1.5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: Text('$v',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isSel ? Colors.white : theme.textColor)),
+              ),
+            );
+          }),
+        );
+
+      // ─── Fallback ─────────────────────────────────────────────────────────
       default:
-        return Text(
-          '${question.type.name} — supported in full survey mode',
-          style: theme.questionDescriptionStyle,
+        return _SimpleTextField(
+          question: question,
+          answer: answer,
+          enabled: enabled,
+          theme: theme,
+          onChanged: onChanged,
         );
     }
   }

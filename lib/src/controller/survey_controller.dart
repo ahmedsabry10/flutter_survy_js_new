@@ -409,8 +409,14 @@ class SurveyController extends ChangeNotifier {
 
   bool isPageVisible(PageModel page) {
     if (!page.visible) return false;
-    if (page.visibleIf == null) return true;
-    return evaluateExpression(page.visibleIf!);
+    // If no visibleIf, always visible
+    if (page.visibleIf == null || page.visibleIf!.isEmpty) return true;
+    // Evaluate expression — if answers not yet set, default to visible
+    try {
+      return evaluateExpression(page.visibleIf!);
+    } catch (_) {
+      return true;
+    }
   }
 
   // ─── Navigation ───────────────────────────────────────────────────────────
@@ -421,7 +427,7 @@ class SurveyController extends ChangeNotifier {
       complete();
       return true;
     }
-    // Skip invisible pages
+    // Skip invisible pages but don't skip the last one
     int next = _currentPageIndex + 1;
     while (next < survey.pages.length - 1 &&
         !isPageVisible(survey.pages[next])) {
@@ -435,6 +441,8 @@ class SurveyController extends ChangeNotifier {
 
   void prevPage() {
     if (isFirstPage) return;
+    // Go back one page — skip invisible pages but always allow going back
+    // to at least page 0
     int prev = _currentPageIndex - 1;
     while (prev > 0 && !isPageVisible(survey.pages[prev])) {
       prev--;
