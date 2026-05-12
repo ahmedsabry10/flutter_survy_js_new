@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 
 /// Controls the visual appearance of all survey widgets.
 /// Pass a custom [SurveyTheme] to [SurveyWidget] to override defaults.
-///
-/// ⚡ Smart defaults: [nextButtonColor], [submitButtonColor],
-/// [focusBorderColor], [ratingSelectedColor], and [progressBarColor]
-/// all follow [primaryColor] automatically if you don't set them explicitly.
 class SurveyTheme {
   // ─── Colors ───────────────────────────────────────────────────────────────
   final Color primaryColor;
@@ -21,16 +17,6 @@ class SurveyTheme {
   final Color ratingSelectedColor;
   final Color ratingUnselectedColor;
   final Color progressBarColor;
-
-  // ─── Button colors ────────────────────────────────────────────────────────
-  /// لون زرار Next — لو مش محدد بياخد primaryColor تلقائياً
-  final Color nextButtonColor;
-
-  /// لون زرار Previous — لو مش محدد بياخد رمادي تلقائياً
-  final Color prevButtonColor;
-
-  /// لون زرار Submit — لو مش محدد بياخد primaryColor تلقائياً
-  final Color submitButtonColor;
 
   // ─── Typography ───────────────────────────────────────────────────────────
   final TextStyle surveyTitleStyle;
@@ -50,6 +36,11 @@ class SurveyTheme {
   final double cardPadding;
   final EdgeInsets inputPadding;
 
+  // ─── Button ───────────────────────────────────────────────────────────────
+  final Color nextButtonColor;
+  final Color prevButtonColor;
+  final Color submitButtonColor;
+
   const SurveyTheme({
     this.primaryColor = const Color(0xFF1AB394),
     this.backgroundColor = const Color(0xFFF5F5F5),
@@ -64,9 +55,6 @@ class SurveyTheme {
     this.ratingSelectedColor = const Color(0xFF1AB394),
     this.ratingUnselectedColor = const Color(0xFFDDDDDD),
     this.progressBarColor = const Color(0xFF1AB394),
-    this.nextButtonColor = const Color(0xFF1AB394),
-    this.prevButtonColor = const Color(0xFF999999),
-    this.submitButtonColor = const Color(0xFF1AB394),
     this.surveyTitleStyle = const TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.bold,
@@ -110,111 +98,15 @@ class SurveyTheme {
     this.buttonBorderRadius = const BorderRadius.all(Radius.circular(4)),
     this.questionSpacing = 16,
     this.cardPadding = 20,
-    this.inputPadding =
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    this.inputPadding = const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    this.nextButtonColor = const Color(0xFF1AB394),
+    this.prevButtonColor = const Color(0xFF999999),
+    this.submitButtonColor = const Color(0xFF1AB394),
   });
-
-  /// Creates a [SurveyTheme] where button colors & accents that were NOT
-  /// explicitly set by the user will follow [primaryColor] automatically.
-  ///
-  /// Use this factory instead of the default constructor when you want
-  /// "change primaryColor → everything updates".
-  factory SurveyTheme.fromPrimary({
-    Color primaryColor = const Color(0xFF1AB394),
-    Color? backgroundColor,
-    Color? questionBackgroundColor,
-    Color? borderColor,
-    Color? focusBorderColor,        // ← follows primaryColor if null
-    Color? errorColor,
-    Color? textColor,
-    Color? titleColor,
-    Color? hintColor,
-    Color? disabledColor,
-    Color? ratingSelectedColor,     // ← follows primaryColor if null
-    Color? ratingUnselectedColor,
-    Color? progressBarColor,        // ← follows primaryColor if null
-    Color? nextButtonColor,         // ← follows primaryColor if null
-    Color? prevButtonColor,
-    Color? submitButtonColor,       // ← follows primaryColor if null
-    TextStyle? surveyTitleStyle,
-    TextStyle? surveyDescriptionStyle,
-    TextStyle? questionTitleStyle,
-    TextStyle? questionDescriptionStyle,
-    TextStyle? inputTextStyle,
-    TextStyle? errorTextStyle,
-    TextStyle? choiceLabelStyle,
-    TextStyle? buttonTextStyle,
-    BorderRadius? inputBorderRadius,
-    BorderRadius? cardBorderRadius,
-    BorderRadius? buttonBorderRadius,
-    double? questionSpacing,
-    double? cardPadding,
-    EdgeInsets? inputPadding,
-  }) {
-    return SurveyTheme(
-      primaryColor: primaryColor,
-      backgroundColor: backgroundColor ?? const Color(0xFFF5F5F5),
-      questionBackgroundColor: questionBackgroundColor ?? Colors.white,
-      borderColor: borderColor ?? const Color(0xFFDDDDDD),
-      // ↓ these all fall back to primaryColor
-      focusBorderColor: focusBorderColor ?? primaryColor,
-      ratingSelectedColor: ratingSelectedColor ?? primaryColor,
-      progressBarColor: progressBarColor ?? primaryColor,
-      nextButtonColor: nextButtonColor ?? primaryColor,
-      submitButtonColor: submitButtonColor ?? primaryColor,
-      // ↓ these have their own independent defaults
-      prevButtonColor: prevButtonColor ?? const Color(0xFF999999),
-      errorColor: errorColor ?? const Color(0xFFE74C3C),
-      textColor: textColor ?? const Color(0xFF333333),
-      titleColor: titleColor ?? const Color(0xFF111111),
-      hintColor: hintColor ?? const Color(0xFF999999),
-      disabledColor: disabledColor ?? const Color(0xFFCCCCCC),
-      ratingUnselectedColor: ratingUnselectedColor ?? const Color(0xFFDDDDDD),
-      surveyTitleStyle: surveyTitleStyle ??
-          const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111111)),
-      surveyDescriptionStyle: surveyDescriptionStyle ??
-          const TextStyle(
-              fontSize: 15, color: Color(0xFF666666), height: 1.5),
-      questionTitleStyle: questionTitleStyle ??
-          const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
-              height: 1.4),
-      questionDescriptionStyle: questionDescriptionStyle ??
-          const TextStyle(
-              fontSize: 13, color: Color(0xFF888888), height: 1.4),
-      inputTextStyle: inputTextStyle ??
-          const TextStyle(fontSize: 15, color: Color(0xFF333333)),
-      errorTextStyle: errorTextStyle ??
-          const TextStyle(fontSize: 12, color: Color(0xFFE74C3C)),
-      choiceLabelStyle: choiceLabelStyle ??
-          const TextStyle(fontSize: 15, color: Color(0xFF333333)),
-      buttonTextStyle: buttonTextStyle ??
-          const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Colors.white),
-      inputBorderRadius:
-          inputBorderRadius ?? const BorderRadius.all(Radius.circular(4)),
-      cardBorderRadius:
-          cardBorderRadius ?? const BorderRadius.all(Radius.circular(8)),
-      buttonBorderRadius:
-          buttonBorderRadius ?? const BorderRadius.all(Radius.circular(4)),
-      questionSpacing: questionSpacing ?? 16,
-      cardPadding: cardPadding ?? 20,
-      inputPadding: inputPadding ??
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    );
-  }
 
   /// Access the theme from any widget using [SurveyTheme.of(context)]
   static SurveyTheme of(BuildContext context) {
-    final inherited =
-        context.dependOnInheritedWidgetOfExactType<_SurveyThemeInherited>();
+    final inherited = context.dependOnInheritedWidgetOfExactType<_SurveyThemeInherited>();
     return inherited?.theme ?? const SurveyTheme();
   }
 
@@ -236,25 +128,18 @@ class SurveyTheme {
     Color? prevButtonColor,
     Color? submitButtonColor,
     TextStyle? surveyTitleStyle,
-    TextStyle? surveyDescriptionStyle,
     TextStyle? questionTitleStyle,
-    TextStyle? questionDescriptionStyle,
-    TextStyle? inputTextStyle,
-    TextStyle? errorTextStyle,
     TextStyle? choiceLabelStyle,
-    TextStyle? buttonTextStyle,
     double? questionSpacing,
     double? cardPadding,
     BorderRadius? inputBorderRadius,
     BorderRadius? cardBorderRadius,
     BorderRadius? buttonBorderRadius,
-    EdgeInsets? inputPadding,
   }) {
     return SurveyTheme(
       primaryColor: primaryColor ?? this.primaryColor,
       backgroundColor: backgroundColor ?? this.backgroundColor,
-      questionBackgroundColor:
-          questionBackgroundColor ?? this.questionBackgroundColor,
+      questionBackgroundColor: questionBackgroundColor ?? this.questionBackgroundColor,
       borderColor: borderColor ?? this.borderColor,
       focusBorderColor: focusBorderColor ?? this.focusBorderColor,
       errorColor: errorColor ?? this.errorColor,
@@ -263,28 +148,19 @@ class SurveyTheme {
       hintColor: hintColor ?? this.hintColor,
       disabledColor: disabledColor ?? this.disabledColor,
       ratingSelectedColor: ratingSelectedColor ?? this.ratingSelectedColor,
-      ratingUnselectedColor:
-          ratingUnselectedColor ?? this.ratingUnselectedColor,
+      ratingUnselectedColor: ratingUnselectedColor ?? this.ratingUnselectedColor,
       progressBarColor: progressBarColor ?? this.progressBarColor,
       nextButtonColor: nextButtonColor ?? this.nextButtonColor,
       prevButtonColor: prevButtonColor ?? this.prevButtonColor,
       submitButtonColor: submitButtonColor ?? this.submitButtonColor,
       surveyTitleStyle: surveyTitleStyle ?? this.surveyTitleStyle,
-      surveyDescriptionStyle:
-          surveyDescriptionStyle ?? this.surveyDescriptionStyle,
       questionTitleStyle: questionTitleStyle ?? this.questionTitleStyle,
-      questionDescriptionStyle:
-          questionDescriptionStyle ?? this.questionDescriptionStyle,
-      inputTextStyle: inputTextStyle ?? this.inputTextStyle,
-      errorTextStyle: errorTextStyle ?? this.errorTextStyle,
       choiceLabelStyle: choiceLabelStyle ?? this.choiceLabelStyle,
-      buttonTextStyle: buttonTextStyle ?? this.buttonTextStyle,
       questionSpacing: questionSpacing ?? this.questionSpacing,
       cardPadding: cardPadding ?? this.cardPadding,
       inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
       cardBorderRadius: cardBorderRadius ?? this.cardBorderRadius,
       buttonBorderRadius: buttonBorderRadius ?? this.buttonBorderRadius,
-      inputPadding: inputPadding ?? this.inputPadding,
     );
   }
 }

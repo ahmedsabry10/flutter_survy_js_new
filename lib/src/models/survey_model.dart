@@ -1,6 +1,5 @@
 import 'question_model.dart';
 
-/// Represents a single page in a SurveyJS survey
 class PageModel {
   final String name;
   final String? title;
@@ -20,113 +19,158 @@ class PageModel {
 
   factory PageModel.fromJson(Map<String, dynamic> json) {
     final rawElements = json['elements'] ?? json['questions'] ?? [];
-    final elements = (rawElements as List)
-        .map((e) => QuestionModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final elements = rawElements is List
+        ? rawElements
+            .whereType<Map<String, dynamic>>()
+            .map((e) => QuestionModel.fromJson(e))
+            .toList()
+        : <QuestionModel>[];
 
     return PageModel(
-      name: json['name'] as String? ?? '',
-      title: json['title'] as String?,
-      description: json['description'] as String?,
+      name: json['name']?.toString() ?? '',
+      title: json['title']?.toString(),
+      description: json['description']?.toString(),
       elements: elements,
-      visibleIf: json['visibleIf'] as String?,
+      visibleIf: json['visibleIf']?.toString(),
       visible: json['visible'] as bool? ?? true,
     );
   }
-
-  @override
-  String toString() => 'PageModel(name: $name, elements: ${elements.length})';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Root model representing a complete SurveyJS survey
 class SurveyModel {
   final String? title;
   final String? description;
   final String? completedHtml;
+  final List<Map<String, dynamic>> completedHtmlOnCondition;
   final String? locale;
   final String? logo;
+  final String? logoPosition;
   final List<PageModel> pages;
+
+  // Calculated values & triggers (stored for future use)
+  final List<Map<String, dynamic>> calculatedValues;
+  final List<Map<String, dynamic>> triggers;
 
   // Navigation
   final bool showNavigationButtons;
   final bool showPrevButton;
   final bool showProgressBar;
   final String? progressBarType;
+  final String? completeText;
+  final String? startSurveyText;
+  final String? previewText;
+  final String? editText;
 
-  // Question display
-  final String? questionTitleLocation;  // "top" | "bottom" | "left"
+  // Display
+  final String? questionTitleLocation;
   final bool showQuestionNumbers;
   final String? requiredText;
+  final String? questionErrorLocation;
+  final bool showTOC;
 
   // Behaviour
-  final String? checkErrorsMode; // "onNextPage" | "onValueChanged" | "onComplete"
+  final String? checkErrorsMode;
+  final String? textUpdateMode;
   final bool goNextPageAutomatic;
+  final String? showPreviewBeforeComplete;
 
   const SurveyModel({
     required this.pages,
     this.title,
     this.description,
     this.completedHtml,
+    this.completedHtmlOnCondition = const [],
     this.locale,
     this.logo,
+    this.logoPosition,
+    this.calculatedValues = const [],
+    this.triggers = const [],
     this.showNavigationButtons = true,
     this.showPrevButton = true,
     this.showProgressBar = false,
     this.progressBarType,
+    this.completeText,
+    this.startSurveyText,
+    this.previewText,
+    this.editText,
     this.questionTitleLocation,
     this.showQuestionNumbers = true,
     this.requiredText,
+    this.questionErrorLocation,
+    this.showTOC = false,
     this.checkErrorsMode,
+    this.textUpdateMode,
     this.goNextPageAutomatic = false,
+    this.showPreviewBeforeComplete,
   });
 
-  /// All questions flattened across all pages
   List<QuestionModel> get allQuestions =>
       pages.expand((p) => p.elements).toList();
 
-  /// Total number of pages
   int get pageCount => pages.length;
-
-  /// True if survey has multiple pages
   bool get isMultiPage => pages.length > 1;
 
   factory SurveyModel.fromJson(Map<String, dynamic> json) {
     List<PageModel> pages;
-
-    // SurveyJS supports two formats:
-    // 1. { pages: [...] }  — multi-page
-    // 2. { elements: [...] } — single page shorthand
-    if (json.containsKey('pages')) {
+    if (json.containsKey('pages') && json['pages'] is List) {
       pages = (json['pages'] as List)
-          .map((p) => PageModel.fromJson(p as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map((p) => PageModel.fromJson(p))
           .toList();
     } else {
-      // Wrap elements in a single page
       final elements = json['elements'] ?? json['questions'] ?? [];
-      pages = [
-        PageModel.fromJson({'name': 'page1', 'elements': elements}),
-      ];
+      pages = [PageModel.fromJson({'name': 'page1', 'elements': elements})];
+    }
+
+    // showProgressBar can be bool or string "top"/"bottom"/"both"
+    bool parseProgressBar(dynamic val) {
+      if (val == null) return false;
+      if (val is bool) return val;
+      if (val is String) return val == 'top' || val == 'bottom' || val == 'both' || val == 'true';
+      return false;
+    }
+
+    // showQuestionNumbers can be bool or string "on"/"off"
+    bool parseShowNumbers(dynamic val) {
+      if (val == null) return true;
+      if (val is bool) return val;
+      if (val is String) return val != 'off' && val != 'false';
+      return true;
+    }
+
+    List<Map<String, dynamic>> parseListOfMaps(dynamic val) {
+      if (val == null || val is! List) return [];
+      return val.whereType<Map<String, dynamic>>().toList();
     }
 
     return SurveyModel(
       pages: pages,
-      title: json['title'] as String?,
-      description: json['description'] as String?,
-      completedHtml: json['completedHtml'] as String?,
-      locale: json['locale'] as String?,
-      logo: json['logo'] as String?,
+      title: json['title']?.toString(),
+      description: json['description']?.toString(),
+      completedHtml: json['completedHtml']?.toString(),
+      completedHtmlOnCondition: parseListOfMaps(json['completedHtmlOnCondition']),
+      locale: json['locale']?.toString(),
+      logo: json['logo']?.toString(),
+      logoPosition: json['logoPosition']?.toString(),
+      calculatedValues: parseListOfMaps(json['calculatedValues']),
+      triggers: parseListOfMaps(json['triggers']),
       showNavigationButtons: json['showNavigationButtons'] as bool? ?? true,
       showPrevButton: json['showPrevButton'] as bool? ?? true,
-      showProgressBar: json['showProgressBar'] as bool? ?? false,
-      progressBarType: json['progressBarType'] as String?,
-      questionTitleLocation: json['questionTitleLocation'] as String?,
-      showQuestionNumbers: !(json['showQuestionNumbers'] == false ||
-          json['showQuestionNumbers'] == 'off'),
-      requiredText: json['requiredText'] as String?,
-      checkErrorsMode: json['checkErrorsMode'] as String?,
+      showProgressBar: parseProgressBar(json['showProgressBar']),
+      progressBarType: json['progressBarType']?.toString(),
+      completeText: json['completeText']?.toString(),
+      startSurveyText: json['startSurveyText']?.toString(),
+      previewText: json['previewText']?.toString(),
+      editText: json['editText']?.toString(),
+      questionTitleLocation: json['questionTitleLocation']?.toString(),
+      showQuestionNumbers: parseShowNumbers(json['showQuestionNumbers']),
+      requiredText: json['requiredText']?.toString(),
+      questionErrorLocation: json['questionErrorLocation']?.toString(),
+      showTOC: json['showTOC'] as bool? ?? false,
+      checkErrorsMode: json['checkErrorsMode']?.toString(),
+      textUpdateMode: json['textUpdateMode']?.toString(),
       goNextPageAutomatic: json['goNextPageAutomatic'] as bool? ?? false,
+      showPreviewBeforeComplete: json['showPreviewBeforeComplete']?.toString(),
     );
   }
 

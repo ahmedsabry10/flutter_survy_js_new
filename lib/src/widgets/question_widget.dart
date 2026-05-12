@@ -11,6 +11,8 @@ import 'dropdown_question.dart';
 import 'rating_question.dart';
 import 'boolean_question.dart';
 import 'matrix_question.dart';
+import 'matrix_dropdown_question.dart';
+import 'matrix_dynamic_question.dart';
 import 'multiple_text_question.dart';
 import 'ranking_question.dart';
 import 'tagbox_question.dart';
@@ -229,7 +231,40 @@ class QuestionWidget extends StatelessWidget {
           onChanged: (v) => controller.setAnswer(question.name, v),
         );
 
-      // ─── Unsupported (signaturepad, file, imagepicker, paneldynamic…) ─────
+      // ─── Expression (read-only computed field) ───────────────────────────
+      case QuestionType.expression:
+        return _ExpressionDisplay(
+          question: question,
+          value: controller.getAnswer(question.name),
+          theme: theme,
+        );
+
+      // ─── MatrixDropdown ───────────────────────────────────────────────────
+      case QuestionType.matrixdropdown:
+        return MatrixDropdownQuestion(
+          question: question,
+          currentValues: answer is Map
+              ? Map<String, Map<String, dynamic>>.from(
+                  (answer as Map).map((k, v) =>
+                      MapEntry(k.toString(), Map<String, dynamic>.from(v as Map))))
+              : {},
+          enabled: enabled,
+          onChanged: (v) => controller.setAnswer(question.name, v),
+        );
+
+      // ─── MatrixDynamic ────────────────────────────────────────────────────
+      case QuestionType.matrixdynamic:
+        return MatrixDynamicQuestion(
+          question: question,
+          currentValues: answer is List
+              ? List<Map<String, dynamic>>.from(
+                  (answer as List).map((e) => Map<String, dynamic>.from(e as Map)))
+              : [],
+          enabled: enabled,
+          onChanged: (v) => controller.setAnswer(question.name, v),
+        );
+
+      // ─── Unsupported ──────────────────────────────────────────────────────
       default:
         return _UnsupportedBadge(type: question.type.name, theme: theme);
     }
@@ -359,6 +394,59 @@ class _UnsupportedBadge extends StatelessWidget {
             child: Text(
               'Question type "$type" — coming in next version',
               style: theme.questionDescriptionStyle.copyWith(color: Colors.orange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Expression Display ───────────────────────────────────────────────────────
+
+class _ExpressionDisplay extends StatelessWidget {
+  final QuestionModel question;
+  final dynamic value;
+  final SurveyTheme theme;
+
+  const _ExpressionDisplay({
+    required this.question,
+    required this.value,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Format value
+    String display;
+    if (value == null) {
+      display = question.expression ?? '—';
+    } else if (value is double && question.maximumFractionDigits != null) {
+      display = value.toStringAsFixed(question.maximumFractionDigits!);
+    } else if (value is double && value == value.roundToDouble()) {
+      display = value.toInt().toString();
+    } else {
+      display = value.toString();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.backgroundColor,
+        borderRadius: theme.inputBorderRadius,
+        border: Border.all(color: theme.borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.functions, size: 16, color: theme.hintColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              display,
+              style: theme.inputTextStyle.copyWith(
+                color: theme.primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

@@ -2,55 +2,67 @@ import 'survey_choice.dart';
 import 'question_type.dart';
 import '../validators/survey_validator.dart';
 
-/// Represents a single question parsed from SurveyJS JSON.
-/// All fields are optional except [name] and [type].
 class QuestionModel {
-  // ─── Identity ─────────────────────────────────────────────────────────────
   final String name;
   final QuestionType type;
   final String? title;
   final String? description;
-
-  // ─── Behaviour ────────────────────────────────────────────────────────────
   final bool isRequired;
   final String? visibleIf;
   final String? enableIf;
   final String? requiredIf;
   final dynamic defaultValue;
+  final String? defaultValueExpression;
   final bool startWithNewLine;
   final bool visible;
   final bool readOnly;
+  final int? colCount;
 
-  // ─── Choices (radio, checkbox, dropdown, imagepicker, ranking) ────────────
+  // Choices
   final List<SurveyChoice> choices;
   final bool? hasOther;
+  final bool? showOtherItem;   // alias for hasOther
   final String? otherText;
   final bool? hasNone;
+  final bool? showNoneItem;    // alias for hasNone
   final String? noneText;
   final bool? hasSelectAll;
-  final String? choicesOrder; // "none" | "asc" | "desc" | "random"
+  final bool? showSelectAllItem; // alias for hasSelectAll
+  final String? choicesOrder;
 
-  // ─── Text input ───────────────────────────────────────────────────────────
-  final String? inputType; // "text" | "email" | "number" | "date" | ...
+  // Text
+  final String? inputType;
   final String? placeholder;
   final int? maxLength;
   final num? min;
   final num? max;
   final String? step;
 
-  // ─── Rating ───────────────────────────────────────────────────────────────
+  // Rating
   final int? rateMin;
   final int? rateMax;
+  final int? rateCount;
   final int? rateStep;
   final String? minRateDescription;
   final String? maxRateDescription;
-  final String? rateType; // "stars" | "smileys" | "labels"
+  final String? rateType;
 
-  // ─── Matrix ───────────────────────────────────────────────────────────────
+  // Matrix
   final List<SurveyChoice> rows;
-  final List<SurveyChoice> columns;
+  final List<dynamic> columns; // can be String or Map (matrixdropdown)
+  final bool? isAllRowRequired;
+  final bool? horizontalScroll;
 
-  // ─── Panel / PanelDynamic ─────────────────────────────────────────────────
+  // MatrixDynamic
+  final int? rowCount;
+  final int? minRowCount;
+  final int? maxRowCount;
+  final String? addRowText;
+  final String? removeRowText;
+  final String? detailPanelMode;
+  final List<QuestionModel> detailElements;
+
+  // Panel / PanelDynamic
   final List<QuestionModel> elements;
   final String? templateTitle;
   final int? panelCount;
@@ -58,29 +70,51 @@ class QuestionModel {
   final int? maxPanelCount;
   final String? panelAddText;
   final String? panelRemoveText;
+  final String? renderMode;
+  final bool? allowAddPanel;
+  final bool? allowRemovePanel;
 
-  // ─── Multiple text ────────────────────────────────────────────────────────
+  // Multiple text
   final List<MultipleTextItem> items;
 
-  // ─── HTML / Image ─────────────────────────────────────────────────────────
+  // HTML / Image
   final String? html;
   final String? imageLink;
   final String? imageHeight;
   final String? imageWidth;
 
-  // ─── File upload ──────────────────────────────────────────────────────────
+  // ImagePicker
+  final bool? multiSelect;
+
+  // File
   final bool? allowMultiple;
   final List<String>? acceptedTypes;
   final num? maxSize;
+  final bool? storeDataAsText;
+  final bool? waitForUpload;
+  final bool? allowImagesPreview;
 
-  // ─── Boolean ──────────────────────────────────────────────────────────────
+  // Boolean
   final String? labelTrue;
   final String? labelFalse;
+  final String? renderAs;
 
-  // ─── Validators ───────────────────────────────────────────────────────────
+  // Comment
+  final int? rows_count; // "rows" field for comment textarea height
+
+  // Expression
+  final String? expression;
+  final String? displayStyle;
+  final int? maximumFractionDigits;
+
+  // Signature
+  final int? signatureWidth;
+  final int? signatureHeight;
+
+  // Validators
   final List<SurveyValidator> validators;
 
-  // ─── Raw JSON (for unsupported features) ──────────────────────────────────
+  // Raw JSON
   final Map<String, dynamic> rawJson;
 
   const QuestionModel({
@@ -94,15 +128,20 @@ class QuestionModel {
     this.enableIf,
     this.requiredIf,
     this.defaultValue,
+    this.defaultValueExpression,
     this.startWithNewLine = true,
     this.visible = true,
     this.readOnly = false,
+    this.colCount,
     this.choices = const [],
     this.hasOther,
+    this.showOtherItem,
     this.otherText,
     this.hasNone,
+    this.showNoneItem,
     this.noneText,
     this.hasSelectAll,
+    this.showSelectAllItem,
     this.choicesOrder,
     this.inputType,
     this.placeholder,
@@ -112,12 +151,22 @@ class QuestionModel {
     this.step,
     this.rateMin,
     this.rateMax,
+    this.rateCount,
     this.rateStep,
     this.minRateDescription,
     this.maxRateDescription,
     this.rateType,
     this.rows = const [],
     this.columns = const [],
+    this.isAllRowRequired,
+    this.horizontalScroll,
+    this.rowCount,
+    this.minRowCount,
+    this.maxRowCount,
+    this.addRowText,
+    this.removeRowText,
+    this.detailPanelMode,
+    this.detailElements = const [],
     this.elements = const [],
     this.templateTitle,
     this.panelCount,
@@ -125,112 +174,190 @@ class QuestionModel {
     this.maxPanelCount,
     this.panelAddText,
     this.panelRemoveText,
+    this.renderMode,
+    this.allowAddPanel,
+    this.allowRemovePanel,
     this.items = const [],
     this.html,
     this.imageLink,
     this.imageHeight,
     this.imageWidth,
+    this.multiSelect,
     this.allowMultiple,
     this.acceptedTypes,
     this.maxSize,
+    this.storeDataAsText,
+    this.waitForUpload,
+    this.allowImagesPreview,
     this.labelTrue,
     this.labelFalse,
+    this.renderAs,
+    this.rows_count,
+    this.expression,
+    this.displayStyle,
+    this.maximumFractionDigits,
+    this.signatureWidth,
+    this.signatureHeight,
     this.validators = const [],
   });
 
-  /// The display title — falls back to [name] if no title provided
   String get displayTitle => (title != null && title!.isNotEmpty) ? title! : name;
 
+  // Resolve aliases
+  bool get effectiveHasOther => hasOther ?? showOtherItem ?? false;
+  bool get effectiveHasNone => hasNone ?? showNoneItem ?? false;
+  bool get effectiveHasSelectAll => hasSelectAll ?? showSelectAllItem ?? false;
+
   factory QuestionModel.fromJson(Map<String, dynamic> json) {
-    List<SurveyChoice> _parseChoices(dynamic raw) {
+    List<SurveyChoice> parseChoices(dynamic raw) {
       if (raw == null) return [];
-      return (raw as List).map((e) => SurveyChoice.fromJson(e)).toList();
+      if (raw is! List) return [];
+      return raw.map((e) => SurveyChoice.fromJson(e)).toList();
     }
 
-    List<SurveyValidator> _parseValidators(dynamic raw) {
+    List<SurveyValidator> parseValidators(dynamic raw) {
       if (raw == null) return [];
-      return (raw as List)
-          .map((e) => SurveyValidator.fromJson(e as Map<String, dynamic>))
+      if (raw is! List) return [];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map((e) => SurveyValidator.fromJson(e))
           .toList();
     }
 
-    List<QuestionModel> _parseElements(dynamic raw) {
+    List<QuestionModel> parseElements(dynamic raw) {
       if (raw == null) return [];
-      return (raw as List)
-          .map((e) => QuestionModel.fromJson(e as Map<String, dynamic>))
+      if (raw is! List) return [];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map((e) => QuestionModel.fromJson(e))
           .toList();
     }
 
-    List<MultipleTextItem> _parseItems(dynamic raw) {
+    List<MultipleTextItem> parseItems(dynamic raw) {
       if (raw == null) return [];
-      return (raw as List)
-          .map((e) => MultipleTextItem.fromJson(e as Map<String, dynamic>))
+      if (raw is! List) return [];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map((e) => MultipleTextItem.fromJson(e))
           .toList();
+    }
+
+    // acceptedTypes: accepts both String ".pdf,.doc" and List ["image/jpeg"]
+    List<String>? parseAcceptedTypes(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is List) return List<String>.from(raw);
+      if (raw is String && raw.isNotEmpty) return raw.split(',').map((s) => s.trim()).toList();
+      return null;
+    }
+
+    // columns: can be List<String> or List<Map> (matrixdropdown)
+    List<dynamic> parseColumns(dynamic raw) {
+      if (raw == null) return [];
+      if (raw is! List) return [];
+      return raw.map((e) {
+        if (e is Map<String, dynamic>) return e;
+        return SurveyChoice.fromJson(e);
+      }).toList();
+    }
+
+    // showProgressBar can be bool OR string "top"/"bottom"
+    // handle safely
+    bool parseBoolOrString(dynamic val, bool defaultVal) {
+      if (val == null) return defaultVal;
+      if (val is bool) return val;
+      if (val is String) return val == 'true';
+      return defaultVal;
     }
 
     return QuestionModel(
-      name: json['name'] as String? ?? '',
-      type: QuestionType.fromString(json['type'] as String? ?? 'empty'),
+      name: json['name']?.toString() ?? '',
+      type: QuestionType.fromString(json['type']?.toString() ?? 'empty'),
       rawJson: json,
-      title: json['title'] as String?,
-      description: json['description'] as String?,
+      title: json['title']?.toString(),
+      description: json['description']?.toString(),
       isRequired: json['isRequired'] as bool? ?? json['required'] as bool? ?? false,
-      visibleIf: json['visibleIf'] as String?,
-      enableIf: json['enableIf'] as String?,
-      requiredIf: json['requiredIf'] as String?,
+      visibleIf: json['visibleIf']?.toString(),
+      enableIf: json['enableIf']?.toString(),
+      requiredIf: json['requiredIf']?.toString(),
       defaultValue: json['defaultValue'],
+      defaultValueExpression: json['defaultValueExpression']?.toString(),
       startWithNewLine: json['startWithNewLine'] as bool? ?? true,
       visible: json['visible'] as bool? ?? true,
       readOnly: json['readOnly'] as bool? ?? false,
-      choices: _parseChoices(json['choices']),
+      colCount: json['colCount'] as int?,
+      choices: parseChoices(json['choices']),
       hasOther: json['hasOther'] as bool?,
-      otherText: json['otherText'] as String?,
+      showOtherItem: json['showOtherItem'] as bool?,
+      otherText: json['otherText']?.toString(),
       hasNone: json['hasNone'] as bool?,
-      noneText: json['noneText'] as String?,
+      showNoneItem: json['showNoneItem'] as bool?,
+      noneText: json['noneText']?.toString(),
       hasSelectAll: json['hasSelectAll'] as bool?,
-      choicesOrder: json['choicesOrder'] as String?,
-      inputType: json['inputType'] as String?,
-      placeholder: json['placeholder'] as String?,
+      showSelectAllItem: json['showSelectAllItem'] as bool?,
+      choicesOrder: json['choicesOrder']?.toString(),
+      inputType: json['inputType']?.toString(),
+      placeholder: json['placeholder']?.toString(),
       maxLength: json['maxLength'] as int?,
       min: json['min'] as num?,
       max: json['max'] as num?,
       step: json['step']?.toString(),
       rateMin: json['rateMin'] as int?,
       rateMax: json['rateMax'] as int?,
+      rateCount: json['rateCount'] as int?,
       rateStep: json['rateStep'] as int?,
-      minRateDescription: json['minRateDescription'] as String?,
-      maxRateDescription: json['maxRateDescription'] as String?,
-      rateType: json['rateType'] as String?,
-      rows: _parseChoices(json['rows']),
-      columns: _parseChoices(json['columns']),
-      elements: _parseElements(json['elements'] ?? json['templateElements']),
-      templateTitle: json['templateTitle'] as String?,
+      minRateDescription: json['minRateDescription']?.toString(),
+      maxRateDescription: json['maxRateDescription']?.toString(),
+      rateType: json['rateType']?.toString(),
+      rows: parseChoices(json['rows']),
+      columns: parseColumns(json['columns']),
+      isAllRowRequired: json['isAllRowRequired'] as bool?,
+      horizontalScroll: json['horizontalScroll'] as bool?,
+      rowCount: json['rowCount'] as int?,
+      minRowCount: json['minRowCount'] as int?,
+      maxRowCount: json['maxRowCount'] as int?,
+      addRowText: json['addRowText']?.toString(),
+      removeRowText: json['removeRowText']?.toString(),
+      detailPanelMode: json['detailPanelMode']?.toString(),
+      detailElements: parseElements(json['detailElements']),
+      elements: parseElements(
+          json['elements'] ?? json['templateElements']),
+      templateTitle: json['templateTitle']?.toString(),
       panelCount: json['panelCount'] as int?,
       minPanelCount: json['minPanelCount'] as int?,
       maxPanelCount: json['maxPanelCount'] as int?,
-      panelAddText: json['panelAddText'] as String?,
-      panelRemoveText: json['panelRemoveText'] as String?,
-      items: _parseItems(json['items']),
-      html: json['html'] as String?,
-      imageLink: json['imageLink'] as String?,
+      panelAddText: json['panelAddText']?.toString(),
+      panelRemoveText: json['panelRemoveText']?.toString(),
+      renderMode: json['renderMode']?.toString(),
+      allowAddPanel: json['allowAddPanel'] as bool?,
+      allowRemovePanel: json['allowRemovePanel'] as bool?,
+      items: parseItems(json['items']),
+      html: json['html']?.toString(),
+      imageLink: json['imageLink']?.toString(),
       imageHeight: json['imageHeight']?.toString(),
       imageWidth: json['imageWidth']?.toString(),
+      multiSelect: json['multiSelect'] as bool?,
       allowMultiple: json['allowMultiple'] as bool?,
-      acceptedTypes: json['acceptedTypes'] is List
-          ? List<String>.from(json['acceptedTypes'] as List)
-          : (json['acceptedTypes'] as String?)?.split(','),
+      acceptedTypes: parseAcceptedTypes(json['acceptedTypes']),
       maxSize: json['maxSize'] as num?,
-      labelTrue: json['labelTrue'] as String?,
-      labelFalse: json['labelFalse'] as String?,
-      validators: _parseValidators(json['validators']),
+      storeDataAsText: json['storeDataAsText'] as bool?,
+      waitForUpload: json['waitForUpload'] as bool?,
+      allowImagesPreview: json['allowImagesPreview'] as bool?,
+      labelTrue: json['labelTrue']?.toString(),
+      labelFalse: json['labelFalse']?.toString(),
+      renderAs: json['renderAs']?.toString(),
+      rows_count: json['rows'] is int ? json['rows'] as int : null,
+      expression: json['expression']?.toString(),
+      displayStyle: json['displayStyle']?.toString(),
+      maximumFractionDigits: json['maximumFractionDigits'] as int?,
+      signatureWidth: json['signatureWidth'] as int?,
+      signatureHeight: json['signatureHeight'] as int?,
+      validators: parseValidators(json['validators']),
     );
   }
 
   @override
   String toString() => 'QuestionModel(name: $name, type: $type)';
 }
-
-// ─── Multiple Text Item ────────────────────────────────────────────────────
 
 class MultipleTextItem {
   final String name;
@@ -249,10 +376,10 @@ class MultipleTextItem {
 
   factory MultipleTextItem.fromJson(Map<String, dynamic> json) {
     return MultipleTextItem(
-      name: json['name'] as String? ?? '',
-      title: json['title'] as String?,
-      placeholder: json['placeholder'] as String?,
-      inputType: json['inputType'] as String?,
+      name: json['name']?.toString() ?? '',
+      title: json['title']?.toString(),
+      placeholder: json['placeholder']?.toString(),
+      inputType: json['inputType']?.toString(),
       isRequired: json['isRequired'] as bool? ?? false,
     );
   }
