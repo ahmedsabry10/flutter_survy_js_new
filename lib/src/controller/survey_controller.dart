@@ -499,12 +499,12 @@ class SurveyController extends ChangeNotifier {
     }
   }
 
-  void goToPage(int index) {
-    if (index >= 0 && index < survey.pageCount) {
-      _currentPageIndex = index;
-      notifyListeners();
-    }
-  }
+  // void goToPage(int index) {
+  //   if (index >= 0 && index < survey.pageCount) {
+  //     _currentPageIndex = index;
+  //     notifyListeners();
+  //   }
+  // }
 
   void complete() {
     if (!validateCurrentPage()) return;
