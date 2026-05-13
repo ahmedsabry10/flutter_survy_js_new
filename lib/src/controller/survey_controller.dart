@@ -206,74 +206,163 @@ class SurveyController extends ChangeNotifier {
 
   dynamic _evaluateCalculatedExpression(String expression) {
     try {
-      // iif(condition, trueVal, falseVal)
-      final iifMatch = RegExp(
-              r"iif\((.+),\s*'?([^',]*)'?,\s*'?([^')]*)'?\)",
-              caseSensitive: false)
-          .firstMatch(expression);
-      if (iifMatch != null) {
-        final condition = iifMatch.group(1)!;
-        final trueVal = iifMatch.group(2)!.trim();
-        final falseVal = iifMatch.group(3)!.trim();
+      final expr = expression.trim();
 
-        // Handle nested iif
-        if (falseVal.toLowerCase().startsWith('iif(')) {
-          return evaluateExpression(condition)
-              ? trueVal
-              : _evaluateCalculatedExpression(falseVal);
-        }
-        return evaluateExpression(condition) ? trueVal : falseVal;
+      // ── iif() — handles nested iif recursively ──────────────────────────
+      if (expr.toLowerCase().startsWith('iif(')) {
+        return _evalIif(expr);
       }
 
-      // {a} + ' ' + {b}  (string concatenation)
-      if (expression.contains("'")) {
-        String result = expression;
-        final refs = RegExp(r'\{(\w+)\}').allMatches(expression);
-        for (final m in refs) {
-          final val = _answers[m.group(1)]?.toString() ?? '';
-          result = result.replaceAll(m.group(0)!, val);
+      // ── Simple {varName} reference ────────────────────────────────────
+      final simpleRef = RegExp(r'^\{(\w+)\}$').firstMatch(expr);
+      if (simpleRef != null) {
+        return _answers[simpleRef.group(1)];
+      }
+
+      // ── String concatenation: {a} + ' ' + {b} ────────────────────────
+      if (expr.contains("'")) {
+        String result = expr;
+        for (final m in RegExp(r'\{(\w+)\}').allMatches(expr)) {
+          result = result.replaceAll(m.group(0)!, _answers[m.group(1)]?.toString() ?? '');
         }
+        // Remove string literal quotes and + operators
         result = result
             .replaceAll(RegExp(r"'\s*\+\s*'"), '')
             .replaceAll(RegExp(r"'\s*\+\s*"), '')
             .replaceAll(RegExp(r"\s*\+\s*'"), '')
-            .replaceAll("'", '');
+            .replaceAll("'", '')
+            .trim();
         return result;
       }
 
-      // ({a} + {b}) / 2  (arithmetic)
-      if (RegExp(r'[\+\-\*\/]').hasMatch(expression)) {
-        String eval = expression.replaceAll('(', '').replaceAll(')', '');
-        final refs = RegExp(r'\{(\w+)\}').allMatches(expression);
-        double? result;
-        String op = '+';
-        for (final m in refs) {
-          final val = num.tryParse(_answers[m.group(1)]?.toString() ?? '');
-          if (val != null) {
-            result = result == null ? val.toDouble() : _applyOp(result, val.toDouble(), op);
-          }
-          final afterMatch = eval.substring(m.end < eval.length ? m.end : eval.length - 1);
-          final opMatch = RegExp(r'^\s*([\+\-\*\/])').firstMatch(afterMatch);
-          if (opMatch != null) op = opMatch.group(1)!;
+      // ── Arithmetic: ({a} + {b}) / 2 ───────────────────────────────────
+      if (RegExp(r'[\+\-\*\/]').hasMatch(expr)) {
+        // Replace all {varName} with their numeric values
+        String evalStr = expr.replaceAll('(', '').replaceAll(')', '');
+        for (final m in RegExp(r'\{(\w+)\}').allMatches(expr)) {
+          final val = _answers[m.group(1)]?.toString() ?? '0';
+          evalStr = evalStr.replaceAll(m.group(0)!, val);
         }
-        // Handle divisor (e.g. / 2)
-        final divisorMatch = RegExp(r'/\s*(\d+)$').firstMatch(expression);
-        if (divisorMatch != null && result != null) {
-          final div = double.tryParse(divisorMatch.group(1)!);
-          if (div != null && div != 0) result = result / div;
+        // Simple two-operand arithmetic
+        final parts = RegExp(r'([\d\.]+)\s*([\+\-\*\/])\s*([\d\.]+)')
+            .firstMatch(evalStr);
+        if (parts != null) {
+          final a = double.tryParse(parts.group(1)!) ?? 0;
+          final op = parts.group(2)!;
+          final b = double.tryParse(parts.group(3)!) ?? 0;
+          return _applyOp(a, b, op);
         }
-        return result;
       }
-
-      // Simple {varName}
-      final refMatch = RegExp(r'^\{(\w+)\}$').firstMatch(expression.trim());
-      if (refMatch != null) return _answers[refMatch.group(1)];
 
       return null;
     } catch (_) {
       return null;
     }
   }
+
+  /// Evaluates iif(condition, trueVal, falseVal) with nested iif support
+  dynamic _evalIif(String expr) {
+    try {
+      // Find the matching parentheses for iif(...)
+      final inner = _extractIifInner(expr);
+      if (inner == null) return null;
+
+      // Split into: condition, trueVal, falseVal
+      // Careful: falseVal might be a nested iif()
+      final parts = _splitIifParts(inner);
+      if (parts == null || parts.length < 3) return null;
+
+      final condition = parts[0].trim();
+      final trueVal = parts[1].trim().replaceAll("'", '');
+      final falseVal = parts[2].trim();
+
+      final condResult = _evaluateCondition(condition);
+
+      if (condResult) {
+        return trueVal;
+      } else {
+        // falseVal might be another iif
+        if (falseVal.toLowerCase().startsWith('iif(')) {
+          return _evalIif(falseVal);
+        }
+        return falseVal.replaceAll("'", '');
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Extracts the inner content of iif(...)
+  String? _extractIifInner(String expr) {
+    final start = expr.indexOf('(');
+    if (start < 0) return null;
+    int depth = 0;
+    int end = -1;
+    for (int i = start; i < expr.length; i++) {
+      if (expr[i] == '(') depth++;
+      else if (expr[i] == ')') {
+        depth--;
+        if (depth == 0) { end = i; break; }
+      }
+    }
+    if (end < 0) return null;
+    return expr.substring(start + 1, end);
+  }
+
+  /// Splits iif inner into [condition, trueVal, falseVal]
+  /// Handles nested iif() in falseVal
+  List<String>? _splitIifParts(String inner) {
+    final parts = <String>[];
+    int depth = 0;
+    int start = 0;
+    for (int i = 0; i < inner.length; i++) {
+      if (inner[i] == '(') depth++;
+      else if (inner[i] == ')') depth--;
+      else if (inner[i] == ',' && depth == 0) {
+        parts.add(inner.substring(start, i).trim());
+        start = i + 1;
+      }
+    }
+    parts.add(inner.substring(start).trim());
+    // condition, trueVal, rest (falseVal may have commas if nested iif)
+    if (parts.length >= 3) {
+      final condition = parts[0];
+      final trueVal = parts[1];
+      final falseVal = parts.sublist(2).join(',');
+      return [condition, trueVal, falseVal];
+    }
+    return parts.length == 2 ? parts : null;
+  }
+
+  /// Evaluates a simple boolean condition like "{age} < 18"
+  bool _evaluateCondition(String condition) {
+    // Numeric comparisons: {varName} op number
+    final numMatch = RegExp(
+      r'\{(\w+)\}\s*([<>=!]+)\s*([\d\.]+)',
+    ).firstMatch(condition);
+    if (numMatch != null) {
+      final varName = numMatch.group(1)!;
+      final op = numMatch.group(2)!;
+      final expected = double.tryParse(numMatch.group(3)!) ?? 0;
+      final rawVal = _answers[varName]?.toString() ?? '';
+      // If value is empty/null — can't compare numerically → return false
+      final actual = double.tryParse(rawVal);
+      if (actual == null) return false;
+      switch (op) {
+        case '<':  return actual < expected;
+        case '<=': return actual <= expected;
+        case '>':  return actual > expected;
+        case '>=': return actual >= expected;
+        case '=':
+        case '==': return actual == expected;
+        case '!=':
+        case '<>': return actual != expected;
+      }
+    }
+    // Fall back to general expression evaluator
+    return evaluateExpression(condition);
+  }
+
 
   double _applyOp(double a, double b, String op) {
     switch (op) {
@@ -360,9 +449,21 @@ class SurveyController extends ChangeNotifier {
       return isValid;
     }
 
-    // paneldynamic — validate each instance's answers
+    // paneldynamic — only validate if there are actual instances
     if (question.type.name == 'paneldynamic') {
       final instances = _answers[question.name];
+      final minCount = question.minPanelCount ?? 0;
+
+      // If no instances and minPanelCount = 0 — perfectly valid
+      if (instances == null || (instances is List && instances.isEmpty)) {
+        if (minCount > 0) {
+          _errors[question.name] = 'Please add at least $minCount panel(s)';
+          return false;
+        }
+        return true;
+      }
+
+      // Validate each actual instance
       if (instances is List) {
         for (int i = 0; i < instances.length; i++) {
           final instanceAnswers = instances[i] is Map
@@ -372,14 +473,14 @@ class SurveyController extends ChangeNotifier {
             if (!tmpl.isRequired) continue;
             final val = instanceAnswers[tmpl.name];
             if (_isValueEmpty(val)) {
-              // Mark error on the paneldynamic question itself
               _errors[question.name] =
-                  'Please fill required fields in all panels';
+                  'Please fill required fields in panel ${i + 1}';
               isValid = false;
             }
           }
         }
       }
+      if (isValid) _errors.remove(question.name);
       return isValid;
     }
 
@@ -499,12 +600,7 @@ class SurveyController extends ChangeNotifier {
     }
   }
 
-  // void goToPage(int index) {
-  //   if (index >= 0 && index < survey.pageCount) {
-  //     _currentPageIndex = index;
-  //     notifyListeners();
-  //   }
-  // }
+
 
   void complete() {
     if (!validateCurrentPage()) return;
