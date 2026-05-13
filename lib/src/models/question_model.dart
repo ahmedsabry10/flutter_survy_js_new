@@ -49,7 +49,10 @@ class QuestionModel {
 
   // Matrix
   final List<SurveyChoice> rows;
-  final List<dynamic> columns; // can be String or Map (matrixdropdown)
+  // FIX: columns is now always List<SurveyChoice> so MatrixQuestion can safely
+  // call .label / .value on every element.
+  // MatrixDropdownQuestion reads its rich column config from rawJson['columns'].
+  final List<SurveyChoice> columns;
   final bool? isAllRowRequired;
   final bool? horizontalScroll;
 
@@ -114,7 +117,7 @@ class QuestionModel {
   // Validators
   final List<SurveyValidator> validators;
 
-  // Raw JSON
+  // Raw JSON — used by matrixdropdown to read rich column definitions
   final Map<String, dynamic> rawJson;
 
   const QuestionModel({
@@ -250,18 +253,15 @@ class QuestionModel {
       return null;
     }
 
-    // columns: can be List<String> or List<Map> (matrixdropdown)
-    List<dynamic> parseColumns(dynamic raw) {
+    // FIX: columns always parsed as SurveyChoice so matrix question can safely
+    // call .label / .value. SurveyChoice.fromJson handles both string and map
+    // forms. MatrixDropdownQuestion reads rawJson['columns'] for rich config.
+    List<SurveyChoice> parseColumns(dynamic raw) {
       if (raw == null) return [];
       if (raw is! List) return [];
-      return raw.map((e) {
-        if (e is Map<String, dynamic>) return e;
-        return SurveyChoice.fromJson(e);
-      }).toList();
+      return raw.map((e) => SurveyChoice.fromJson(e)).toList();
     }
 
-    // showProgressBar can be bool OR string "top"/"bottom"
-    // handle safely
     bool parseBoolOrString(dynamic val, bool defaultVal) {
       if (val == null) return defaultVal;
       if (val is bool) return val;

@@ -56,14 +56,23 @@ class _MatrixDynamicQuestionState extends State<MatrixDynamicQuestion> {
   @override
   Widget build(BuildContext context) {
     final theme = SurveyTheme.of(context);
-    final columns = widget.question.columns;
     final addText = widget.question.addRowText ?? '+ Add row';
     final removeText = widget.question.removeRowText ?? 'Remove';
 
-    final colDefs = columns.map((c) {
-      if (c is Map<String, dynamic>) return c;
-      return <String, dynamic>{'name': c.toString(), 'title': c.toString(), 'cellType': 'text'};
-    }).toList();
+    // FIX: read raw column definitions from rawJson so we get cellType, name,
+    // title, inputType etc. question.columns is now List<SurveyChoice> and
+    // only suitable for the simple matrix widget.
+    final rawCols = widget.question.rawJson['columns'];
+    final colDefs = (rawCols is List)
+        ? rawCols.map((c) {
+            if (c is Map<String, dynamic>) return c;
+            return <String, dynamic>{
+              'name': c.toString(),
+              'title': c.toString(),
+              'cellType': 'text'
+            };
+          }).toList()
+        : <Map<String, dynamic>>[];
 
     if (colDefs.isEmpty) {
       return Text('No columns defined.', style: theme.questionDescriptionStyle);
@@ -97,7 +106,7 @@ class _MatrixDynamicQuestionState extends State<MatrixDynamicQuestion> {
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: theme.titleColor),
                       ),
                     )),
-                    // Remove column header
+                    // Remove column header spacer
                     if (widget.enabled && (widget.question.minRowCount ?? 0) < (_rows.length))
                       const SizedBox(width: 60),
                   ],
@@ -189,7 +198,7 @@ class _MatrixDynamicQuestionState extends State<MatrixDynamicQuestion> {
             isExpanded: true,
             hint: Text('Select...', style: TextStyle(fontSize: 12, color: theme.hintColor)),
             style: TextStyle(fontSize: 12, color: theme.textColor),
-            items: choices.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(fontSize: 12)))).toList(),
+            items: choices.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
             onChanged: widget.enabled ? onChanged : null,
           ),
         );

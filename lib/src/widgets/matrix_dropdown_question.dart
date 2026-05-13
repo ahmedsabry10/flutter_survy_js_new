@@ -43,17 +43,25 @@ class _MatrixDropdownQuestionState extends State<MatrixDropdownQuestion> {
   Widget build(BuildContext context) {
     final theme = SurveyTheme.of(context);
     final rows = widget.question.rows;
-    final columns = widget.question.columns;
 
-    if (rows.isEmpty || columns.isEmpty) {
+    // FIX: read raw column definitions from rawJson so we get cellType, name,
+    // title, choices etc. — question.columns is now List<SurveyChoice> which
+    // only has value/text and is used by the simple matrix widget.
+    final rawCols = widget.question.rawJson['columns'];
+    final colDefs = (rawCols is List)
+        ? rawCols.map((c) {
+            if (c is Map<String, dynamic>) return c;
+            return <String, dynamic>{
+              'name': c.toString(),
+              'title': c.toString(),
+              'cellType': 'text'
+            };
+          }).toList()
+        : <Map<String, dynamic>>[];
+
+    if (rows.isEmpty || colDefs.isEmpty) {
       return Text('Matrix has no rows or columns.', style: theme.questionDescriptionStyle);
     }
-
-    // Parse column definitions
-    final colDefs = columns.map((c) {
-      if (c is Map<String, dynamic>) return c;
-      return <String, dynamic>{'name': c.toString(), 'title': c.toString(), 'cellType': 'text'};
-    }).toList();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -157,7 +165,7 @@ class _MatrixDropdownQuestionState extends State<MatrixDropdownQuestion> {
             isExpanded: true,
             hint: Text('Select...', style: TextStyle(fontSize: 12, color: theme.hintColor)),
             style: TextStyle(fontSize: 12, color: theme.textColor),
-            items: choices.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(fontSize: 12)))).toList(),
+            items: choices.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
             onChanged: widget.enabled ? onChanged : null,
           ),
         );
