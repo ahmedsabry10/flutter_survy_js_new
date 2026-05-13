@@ -233,9 +233,25 @@ class QuestionWidget extends StatelessWidget {
 
       // ─── Expression (read-only computed field) ───────────────────────────
       case QuestionType.expression:
+        // Try 1: look up calculated value by name directly e.g. {ageBucket}
+        // Try 2: evaluate the raw expression string
+        // Try 3: look up by question name
+        dynamic exprValue;
+        if (question.expression != null) {
+          final expr = question.expression!.trim();
+          // Simple {varName} reference → direct lookup
+          final simpleRef = RegExp(r'^\{(\w+)\}$').firstMatch(expr);
+          if (simpleRef != null) {
+            exprValue = controller.getAnswer(simpleRef.group(1)!);
+          } else {
+            // Complex expression → evaluate it
+            exprValue = controller.evaluateCalculatedExpression(expr);
+          }
+        }
+        exprValue ??= controller.getAnswer(question.name);
         return _ExpressionDisplay(
           question: question,
-          value: controller.getAnswer(question.name),
+          value: exprValue,
           theme: theme,
         );
 

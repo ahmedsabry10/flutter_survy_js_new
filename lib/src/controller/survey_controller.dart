@@ -39,9 +39,9 @@ class SurveyController extends ChangeNotifier {
   void setAnswer(String name, dynamic value) {
     _answers[name] = value;
     _errors.remove(name);
-    _applyCalculatedValues();
+    _applyCalculatedValues(); // recalculate derived values
     _applyTriggers();
-    notifyListeners();
+    notifyListeners(); // rebuild AFTER calculated values are updated
   }
 
   void clearAnswer(String name) {
@@ -183,6 +183,14 @@ class SurveyController extends ChangeNotifier {
     }
   }
 
+  // ─── Public expression evaluator (for expression questions) ─────────────────
+
+  /// Evaluates a calculated expression and returns the result.
+  /// Used by expression-type questions to display computed values.
+  dynamic evaluateCalculatedExpression(String expression) {
+    return _evaluateCalculatedExpression(expression);
+  }
+
   // ─── Calculated Values ────────────────────────────────────────────────────
 
   void _applyCalculatedValues() {
@@ -190,11 +198,9 @@ class SurveyController extends ChangeNotifier {
       final name = cv['name'] as String?;
       final expression = cv['expression'] as String?;
       if (name == null || expression == null) continue;
-
+      // Always evaluate and store — even if null clears old value
       final result = _evaluateCalculatedExpression(expression);
-      if (result != null) {
-        _answers[name] = result;
-      }
+      _answers[name] = result;
     }
   }
 
@@ -332,27 +338,59 @@ class SurveyController extends ChangeNotifier {
   bool validateCurrentPage() {
     bool isValid = true;
     for (final question in currentPage.elements) {
-      final error = _validateQuestion(question);
-      if (error != null) {
-        _errors[question.name] = error;
+      if (!_validateQuestionTree(question)) {
         isValid = false;
-      } else {
-        _errors.remove(question.name);
-      }
-      // Recursively validate panel children
-      if (question.elements.isNotEmpty) {
-        for (final child in question.elements) {
-          final childError = _validateQuestion(child);
-          if (childError != null) {
-            _errors[child.name] = childError;
-            isValid = false;
-          } else {
-            _errors.remove(child.name);
-          }
-        }
       }
     }
     notifyListeners();
+    return isValid;
+  }
+
+  /// Validates a question and its children recursively.
+  bool _validateQuestionTree(QuestionModel question) {
+    if (!isQuestionVisible(question)) return true;
+
+    bool isValid = true;
+
+    // panel — validate children only (panel itself has no answer)
+    if (question.type.name == 'panel') {
+      for (final child in question.elements) {
+        if (!_validateQuestionTree(child)) isValid = false;
+      }
+      return isValid;
+    }
+
+    // paneldynamic — validate each instance's answers
+    if (question.type.name == 'paneldynamic') {
+      final instances = _answers[question.name];
+      if (instances is List) {
+        for (int i = 0; i < instances.length; i++) {
+          final instanceAnswers = instances[i] is Map
+              ? Map<String, dynamic>.from(instances[i] as Map)
+              : <String, dynamic>{};
+          for (final tmpl in question.elements) {
+            if (!tmpl.isRequired) continue;
+            final val = instanceAnswers[tmpl.name];
+            if (_isValueEmpty(val)) {
+              // Mark error on the paneldynamic question itself
+              _errors[question.name] =
+                  'Please fill required fields in all panels';
+              isValid = false;
+            }
+          }
+        }
+      }
+      return isValid;
+    }
+
+    // Normal question
+    final error = _validateQuestion(question);
+    if (error != null) {
+      _errors[question.name] = error;
+      isValid = false;
+    } else {
+      _errors.remove(question.name);
+    }
     return isValid;
   }
 
@@ -427,13 +465,14 @@ class SurveyController extends ChangeNotifier {
       complete();
       return true;
     }
-    // Skip invisible pages but don't skip the last one
+    // Find next VISIBLE page
     int next = _currentPageIndex + 1;
     while (next < survey.pages.length - 1 &&
         !isPageVisible(survey.pages[next])) {
       next++;
     }
     _currentPageIndex = next;
+    _errors.clear();
     _applyCalculatedValues();
     notifyListeners();
     return true;
@@ -441,8 +480,7 @@ class SurveyController extends ChangeNotifier {
 
   void prevPage() {
     if (isFirstPage) return;
-    // Go back one page — skip invisible pages but always allow going back
-    // to at least page 0
+    // Find previous VISIBLE page — always go at least to index 0
     int prev = _currentPageIndex - 1;
     while (prev > 0 && !isPageVisible(survey.pages[prev])) {
       prev--;
@@ -450,6 +488,15 @@ class SurveyController extends ChangeNotifier {
     _currentPageIndex = prev;
     _errors.clear();
     notifyListeners();
+  }
+
+  /// Jump directly to a page index
+  void goToPage(int index) {
+    if (index >= 0 && index < survey.pageCount) {
+      _currentPageIndex = index;
+      _errors.clear();
+      notifyListeners();
+    }
   }
 
   void goToPage(int index) {
