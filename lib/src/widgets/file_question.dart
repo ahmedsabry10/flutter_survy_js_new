@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
@@ -55,43 +56,14 @@ typedef OnClearFile = Future<bool> Function(SurveyFile file);
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Renders a SurveyJS `file` question with full upload/download/clear support.
-///
-/// Wire the three callbacks to your backend or file picker:
-///
-/// ```dart
-/// FileQuestion(
-///   question: q,
-///   onChanged: (files) => controller.setAnswer(q.name, files),
-///   onUploadFile: (files) async {
-///     // e.g. upload to S3 and return files with content = URL
-///     final uploaded = await myApi.upload(files);
-///     return uploaded;
-///   },
-///   onDownloadFile: (file) async {
-///     await launchUrl(Uri.parse(file.content!));
-///   },
-///   onClearFile: (file) async {
-///     await myApi.delete(file.name);
-///     return true; // confirm removal
-///   },
-/// )
-/// ```
 class FileQuestion extends StatefulWidget {
   final QuestionModel question;
   final List<SurveyFile> currentFiles;
   final ValueChanged<List<SurveyFile>> onChanged;
 
-  /// Called when user picks files. Upload them here and return with content set.
   final OnUploadFile? onUploadFile;
-
-  /// Called when user taps the download icon on a file.
   final OnDownloadFile? onDownloadFile;
-
-  /// Called when user taps the remove icon. Return true to confirm removal.
   final OnClearFile? onClearFile;
-
-  /// Called when user taps the upload area but no [onUploadFile] is set.
-  /// Use this to open your own file picker and call [onChanged] manually.
   final VoidCallback? onPickFiles;
 
   final bool enabled;
@@ -117,9 +89,7 @@ class _FileQuestionState extends State<FileQuestion> {
   bool _uploading = false;
   String? _errorMessage;
 
-  // Track which files are downloading
   final Set<String> _downloading = {};
-  // Track which files are being cleared
   final Set<String> _clearing = {};
 
   @override
@@ -136,10 +106,60 @@ class _FileQuestionState extends State<FileQuestion> {
     }
   }
 
+  // ─── Pick files using file_picker ────────────────────────────────────────
+
+  Future<void> _openPicker() async {
+    if (!widget.enabled || _uploading) return;
+
+    // If consumer provided their own picker, use it
+    if (widget.onPickFiles != null) {
+      widget.onPickFiles!();
+      return;
+    }
+
+    // Build allowed extensions from acceptedTypes MIME list
+    // e.g. ["image/jpeg", "image/png"] → ["jpg", "jpeg", "png"]
+    List<String>? allowedExtensions;
+    final accepted = widget.question.acceptedTypes;
+    if (accepted != null && accepted.isNotEmpty) {
+      allowedExtensions = _mimeToExtensions(accepted);
+    }
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: widget.question.allowMultiple ?? false,
+        type: (allowedExtensions != null && allowedExtensions.isNotEmpty)
+            ? FileType.custom
+            : FileType.any,
+        allowedExtensions: (allowedExtensions != null && allowedExtensions.isNotEmpty)
+            ? allowedExtensions
+            : null,
+        withData: false, // don't load bytes into memory — use path
+      );
+
+      if (result == null || result.files.isEmpty) return; // user cancelled
+
+      // Convert picked files to SurveyFile
+      final picked = result.files.map((pf) {
+        return SurveyFile(
+          name: pf.name,
+          type: _extensionToMime(pf.extension ?? ''),
+          size: pf.size,
+          raw: pf, // PlatformFile
+        );
+      }).toList();
+
+      await _handleUpload(picked);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = 'Could not open file picker: ${e.toString()}');
+      }
+    }
+  }
+
   // ─── Upload ───────────────────────────────────────────────────────────────
 
   Future<void> _handleUpload(List<SurveyFile> picked) async {
-    if (!widget.enabled) return;
     setState(() {
       _uploading = true;
       _errorMessage = null;
@@ -149,10 +169,8 @@ class _FileQuestionState extends State<FileQuestion> {
       List<SurveyFile> result;
 
       if (widget.onUploadFile != null) {
-        // Let the consumer upload and return enriched files
         result = await widget.onUploadFile!(picked);
       } else {
-        // No upload handler — just store the raw files
         result = picked;
       }
 
@@ -212,6 +230,71 @@ class _FileQuestionState extends State<FileQuestion> {
     }
   }
 
+  // ─── MIME helpers ─────────────────────────────────────────────────────────
+
+  /// Converts MIME type list to file extensions for FilePicker
+  List<String> _mimeToExtensions(List<String> mimes) {
+    final map = <String, List<String>>{
+      'image/jpeg': ['jpg', 'jpeg'],
+      'image/png': ['png'],
+      'image/gif': ['gif'],
+      'image/webp': ['webp'],
+      'image/bmp': ['bmp'],
+      'application/pdf': ['pdf'],
+      'application/msword': ['doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+      'application/vnd.ms-excel': ['xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+      'application/vnd.ms-powerpoint': ['ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx'],
+      'text/plain': ['txt'],
+      'text/csv': ['csv'],
+      'video/mp4': ['mp4'],
+      'video/quicktime': ['mov'],
+      'audio/mpeg': ['mp3'],
+      'audio/wav': ['wav'],
+      'application/zip': ['zip'],
+    };
+    final exts = <String>{};
+    for (final mime in mimes) {
+      final found = map[mime];
+      if (found != null) {
+        exts.addAll(found);
+      } else if (mime.startsWith('image/')) {
+        // Generic image wildcard
+        exts.addAll(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+      }
+    }
+    return exts.toList();
+  }
+
+  /// Maps extension back to MIME for display
+  String _extensionToMime(String ext) {
+    const map = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'txt': 'text/plain',
+      'csv': 'text/csv',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'zip': 'application/zip',
+    };
+    return map[ext.toLowerCase()] ?? 'application/octet-stream';
+  }
+
   // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -229,17 +312,8 @@ class _FileQuestionState extends State<FileQuestion> {
           _UploadZone(
             uploading: _uploading,
             accepted: accepted,
-            hasHandler:
-                widget.onUploadFile != null || widget.onPickFiles != null,
             theme: theme,
-            onTap: () {
-              if (widget.onPickFiles != null) {
-                widget.onPickFiles!();
-              }
-              // If consumer uses onUploadFile with their own picker,
-              // they call _handleUpload externally via a GlobalKey or
-              // pass files through onPickFiles callback.
-            },
+            onTap: _openPicker, // FIX: always calls our picker
           ),
 
         // Error message
@@ -251,8 +325,7 @@ class _FileQuestionState extends State<FileQuestion> {
                 Icon(Icons.error_outline, size: 14, color: theme.errorColor),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(_errorMessage!,
-                      style: theme.errorTextStyle),
+                  child: Text(_errorMessage!, style: theme.errorTextStyle),
                 ),
               ],
             ),
@@ -267,8 +340,7 @@ class _FileQuestionState extends State<FileQuestion> {
                 enabled: widget.enabled,
                 isDownloading: _downloading.contains(file.name),
                 isClearing: _clearing.contains(file.name),
-                canDownload: widget.onDownloadFile != null &&
-                    file.content != null,
+                canDownload: widget.onDownloadFile != null && file.content != null,
                 onDownload: () => _handleDownload(file),
                 onClear: () => _handleClear(file),
               )),
@@ -283,14 +355,12 @@ class _FileQuestionState extends State<FileQuestion> {
 class _UploadZone extends StatelessWidget {
   final bool uploading;
   final String? accepted;
-  final bool hasHandler;
   final SurveyTheme theme;
   final VoidCallback onTap;
 
   const _UploadZone({
     required this.uploading,
     required this.accepted,
-    required this.hasHandler,
     required this.theme,
     required this.onTap,
   });
@@ -307,9 +377,7 @@ class _UploadZone extends StatelessWidget {
           color: theme.backgroundColor,
           borderRadius: theme.inputBorderRadius,
           border: Border.all(
-            color: uploading
-                ? theme.primaryColor
-                : theme.borderColor,
+            color: uploading ? theme.primaryColor : theme.borderColor,
           ),
         ),
         child: uploading
@@ -335,17 +403,12 @@ class _UploadZone extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.cloud_upload_outlined,
-                      size: 36,
-                      color: hasHandler
-                          ? theme.primaryColor
-                          : theme.hintColor),
+                      size: 36, color: theme.primaryColor),
                   const SizedBox(height: 8),
                   Text(
-                    hasHandler ? 'Tap to upload' : 'No upload handler set',
+                    'Tap to upload',
                     style: TextStyle(
-                      color: hasHandler
-                          ? theme.primaryColor
-                          : theme.hintColor,
+                      color: theme.primaryColor,
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                     ),
@@ -400,7 +463,7 @@ class _FileItem extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Image preview (if image file)
+          // Image preview
           if (isImage && file.content != null)
             ClipRRect(
               borderRadius: BorderRadius.only(
@@ -418,11 +481,10 @@ class _FileItem extends StatelessWidget {
 
           // File row
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // File icon
+                // Icon
                 Container(
                   width: 36,
                   height: 36,
@@ -430,11 +492,7 @@ class _FileItem extends StatelessWidget {
                     color: theme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    _iconFor(file.type),
-                    size: 18,
-                    color: theme.primaryColor,
-                  ),
+                  child: Icon(_iconFor(file.type), size: 18, color: theme.primaryColor),
                 ),
                 const SizedBox(width: 10),
 
@@ -445,21 +503,19 @@ class _FileItem extends StatelessWidget {
                     children: [
                       Text(
                         file.name,
-                        style: theme.inputTextStyle
-                            .copyWith(fontWeight: FontWeight.w500),
+                        style: theme.inputTextStyle.copyWith(fontWeight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (file.size != null)
                         Text(
                           _formatSize(file.size!),
-                          style: theme.questionDescriptionStyle
-                              .copyWith(fontSize: 11),
+                          style: theme.questionDescriptionStyle.copyWith(fontSize: 11),
                         ),
                     ],
                   ),
                 ),
 
-                // Download button
+                // Download
                 if (canDownload)
                   _ActionButton(
                     loading: isDownloading,
@@ -470,7 +526,7 @@ class _FileItem extends StatelessWidget {
 
                 const SizedBox(width: 4),
 
-                // Clear button
+                // Remove
                 if (enabled)
                   _ActionButton(
                     loading: isClearing,
@@ -489,12 +545,8 @@ class _FileItem extends StatelessWidget {
   IconData _iconFor(String mime) {
     if (mime.startsWith('image/')) return Icons.image_outlined;
     if (mime.contains('pdf')) return Icons.picture_as_pdf_outlined;
-    if (mime.contains('word') || mime.contains('document')) {
-      return Icons.description_outlined;
-    }
-    if (mime.contains('sheet') || mime.contains('excel')) {
-      return Icons.table_chart_outlined;
-    }
+    if (mime.contains('word') || mime.contains('document')) return Icons.description_outlined;
+    if (mime.contains('sheet') || mime.contains('excel')) return Icons.table_chart_outlined;
     if (mime.startsWith('video/')) return Icons.videocam_outlined;
     if (mime.startsWith('audio/')) return Icons.audiotrack_outlined;
     return Icons.attach_file;
@@ -532,8 +584,7 @@ class _ActionButton extends StatelessWidget {
         child: loading
             ? Padding(
                 padding: const EdgeInsets.all(6),
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: color),
+                child: CircularProgressIndicator(strokeWidth: 2, color: color),
               )
             : Icon(icon, size: 20, color: color),
       ),
