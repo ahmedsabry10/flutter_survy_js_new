@@ -42,6 +42,13 @@ class _PanelDynamicQuestionState extends State<PanelDynamicQuestion> {
   }
 
   List<Map<String, dynamic>> _buildInitialPanels() {
+    // FIX: if minPanelCount is 0, start with zero panels so the user isn't
+    // forced to fill required fields they never asked to add.
+    // Only pre-populate panels when minPanelCount > 0 (or not set).
+    final minCount = widget.question.minPanelCount ?? 1;
+    if (minCount == 0) return [];
+
+    // Otherwise honour panelCount (default 1) but cap it at minCount
     final count = widget.question.panelCount ?? 1;
     return List.generate(count, (_) => {});
   }

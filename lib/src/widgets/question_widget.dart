@@ -233,13 +233,10 @@ class QuestionWidget extends StatelessWidget {
 
       // ─── Expression (read-only computed field) ───────────────────────────
       case QuestionType.expression:
-        // Try 1: look up calculated value by name directly e.g. {ageBucket}
-        // Try 2: evaluate the raw expression string
-        // Try 3: look up by question name
         dynamic exprValue;
         if (question.expression != null) {
           final expr = question.expression!.trim();
-          // Simple {varName} reference → direct lookup
+          // Simple {varName} reference → direct lookup in answers/calculated values
           final simpleRef = RegExp(r'^\{(\w+)\}$').firstMatch(expr);
           if (simpleRef != null) {
             exprValue = controller.getAnswer(simpleRef.group(1)!);
@@ -434,9 +431,10 @@ class _ExpressionDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Format value
+    // FIX: when value is null or empty, show '—' (not the raw expression string)
     String display;
-    if (value == null) {
-      display = question.expression ?? '—';
+    if (value == null || (value is String && value.toString().trim().isEmpty)) {
+      display = '—';
     } else if (value is double && question.maximumFractionDigits != null) {
       display = value.toStringAsFixed(question.maximumFractionDigits!);
     } else if (value is double && value == value.roundToDouble()) {
