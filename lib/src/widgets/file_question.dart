@@ -4,13 +4,12 @@ import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
 /// Represents a single uploaded file — same structure as SurveyJS web.
-/// [content] is base64-encoded file data (optional, set after upload).
 class SurveyFile {
   final String name;
-  final String type; // MIME type e.g. "image/jpeg"
-  final int? size; // bytes
-  final String? content; // base64 string or URL after upload
-  final dynamic raw; // original platform file object (File, XFile, etc.)
+  final String type;
+  final int? size;
+  final String? content;
+  final dynamic raw;
 
   const SurveyFile({
     required this.name,
@@ -38,34 +37,20 @@ class SurveyFile {
   String toString() => 'SurveyFile(name: $name, type: $type)';
 }
 
-/// Called when the user selects files to upload.
-/// Return the same list with [SurveyFile.content] populated after upload.
-/// Throw to cancel / show error.
-typedef OnUploadFile = Future<List<SurveyFile>> Function(
-  List<SurveyFile> files,
-);
-
-/// Called when the user taps download on a file.
-/// [file] contains the name, type, and content/URL.
+typedef OnUploadFile = Future<List<SurveyFile>> Function(List<SurveyFile> files);
 typedef OnDownloadFile = Future<void> Function(SurveyFile file);
-
-/// Called when the user removes a file.
-/// Return false to cancel the removal (e.g. if server delete fails).
 typedef OnClearFile = Future<bool> Function(SurveyFile file);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Renders a SurveyJS `file` question with full upload/download/clear support.
 class FileQuestion extends StatefulWidget {
   final QuestionModel question;
   final List<SurveyFile> currentFiles;
   final ValueChanged<List<SurveyFile>> onChanged;
-
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
   final OnClearFile? onClearFile;
   final VoidCallback? onPickFiles;
-
   final bool enabled;
 
   const FileQuestion({
@@ -88,7 +73,6 @@ class _FileQuestionState extends State<FileQuestion> {
   late List<SurveyFile> _files;
   bool _uploading = false;
   String? _errorMessage;
-
   final Set<String> _downloading = {};
   final Set<String> _clearing = {};
 
@@ -106,21 +90,18 @@ class _FileQuestionState extends State<FileQuestion> {
     }
   }
 
-  // ─── Pick files using file_picker ────────────────────────────────────────
+  // ─── Pick ────────────────────────────────────────────────────────────────
 
   Future<void> _openPicker() async {
     if (!widget.enabled || _uploading) return;
 
-    // If consumer provided their own picker, use it
     if (widget.onPickFiles != null) {
       widget.onPickFiles!();
       return;
     }
 
-    // Build allowed extensions from acceptedTypes MIME list
-    // e.g. ["image/jpeg", "image/png"] → ["jpg", "jpeg", "png"]
-    List<String>? allowedExtensions;
     final accepted = widget.question.acceptedTypes;
+    List<String>? allowedExtensions;
     if (accepted != null && accepted.isNotEmpty) {
       allowedExtensions = _mimeToExtensions(accepted);
     }
@@ -131,28 +112,29 @@ class _FileQuestionState extends State<FileQuestion> {
         type: (allowedExtensions != null && allowedExtensions.isNotEmpty)
             ? FileType.custom
             : FileType.any,
-        allowedExtensions: (allowedExtensions != null && allowedExtensions.isNotEmpty)
-            ? allowedExtensions
-            : null,
-        withData: false, // don't load bytes into memory — use path
+        allowedExtensions:
+            (allowedExtensions != null && allowedExtensions.isNotEmpty)
+                ? allowedExtensions
+                : null,
+        withData: true, // FIX: load bytes so raw.bytes is always available
       );
 
-      if (result == null || result.files.isEmpty) return; // user cancelled
+      if (result == null || result.files.isEmpty) return;
 
-      // Convert picked files to SurveyFile
       final picked = result.files.map((pf) {
         return SurveyFile(
           name: pf.name,
           type: _extensionToMime(pf.extension ?? ''),
           size: pf.size,
-          raw: pf, // PlatformFile
+          raw: pf, // PlatformFile — consumer can read pf.bytes or pf.path
         );
       }).toList();
 
       await _handleUpload(picked);
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not open file picker: ${e.toString()}');
+        setState(
+            () => _errorMessage = 'Could not open file picker: ${e.toString()}');
       }
     }
   }
@@ -164,22 +146,18 @@ class _FileQuestionState extends State<FileQuestion> {
       _uploading = true;
       _errorMessage = null;
     });
-
     try {
       List<SurveyFile> result;
-
       if (widget.onUploadFile != null) {
         result = await widget.onUploadFile!(picked);
       } else {
         result = picked;
       }
-
       if (widget.question.allowMultiple == true) {
         _files = [..._files, ...result];
       } else {
         _files = [result.first];
       }
-
       widget.onChanged(_files);
     } catch (e) {
       setState(() => _errorMessage = 'Upload failed: ${e.toString()}');
@@ -198,8 +176,7 @@ class _FileQuestionState extends State<FileQuestion> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: ${e.toString()}')),
-        );
+            SnackBar(content: Text('Download failed: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _downloading.remove(file.name));
@@ -222,8 +199,7 @@ class _FileQuestionState extends State<FileQuestion> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Remove failed: ${e.toString()}')),
-        );
+            SnackBar(content: Text('Remove failed: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _clearing.remove(file.name));
@@ -232,9 +208,8 @@ class _FileQuestionState extends State<FileQuestion> {
 
   // ─── MIME helpers ─────────────────────────────────────────────────────────
 
-  /// Converts MIME type list to file extensions for FilePicker
   List<String> _mimeToExtensions(List<String> mimes) {
-    final map = <String, List<String>>{
+    const map = <String, List<String>>{
       'image/jpeg': ['jpg', 'jpeg'],
       'image/png': ['png'],
       'image/gif': ['gif'],
@@ -245,8 +220,6 @@ class _FileQuestionState extends State<FileQuestion> {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
       'application/vnd.ms-excel': ['xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
-      'application/vnd.ms-powerpoint': ['ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx'],
       'text/plain': ['txt'],
       'text/csv': ['csv'],
       'video/mp4': ['mp4'],
@@ -261,14 +234,12 @@ class _FileQuestionState extends State<FileQuestion> {
       if (found != null) {
         exts.addAll(found);
       } else if (mime.startsWith('image/')) {
-        // Generic image wildcard
-        exts.addAll(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+        exts.addAll(['jpg', 'jpeg', 'png', 'gif', 'webp']);
       }
     }
     return exts.toList();
   }
 
-  /// Maps extension back to MIME for display
   String _extensionToMime(String ext) {
     const map = {
       'jpg': 'image/jpeg',
@@ -276,14 +247,11 @@ class _FileQuestionState extends State<FileQuestion> {
       'png': 'image/png',
       'gif': 'image/gif',
       'webp': 'image/webp',
-      'bmp': 'image/bmp',
       'pdf': 'application/pdf',
       'doc': 'application/msword',
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'xls': 'application/vnd.ms-excel',
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'txt': 'text/plain',
       'csv': 'text/csv',
       'mp4': 'video/mp4',
@@ -307,16 +275,13 @@ class _FileQuestionState extends State<FileQuestion> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Upload zone
         if (widget.enabled && canAddMore)
           _UploadZone(
             uploading: _uploading,
             accepted: accepted,
             theme: theme,
-            onTap: _openPicker, // FIX: always calls our picker
+            onTap: _openPicker,
           ),
-
-        // Error message
         if (_errorMessage != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -325,13 +290,11 @@ class _FileQuestionState extends State<FileQuestion> {
                 Icon(Icons.error_outline, size: 14, color: theme.errorColor),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(_errorMessage!, style: theme.errorTextStyle),
-                ),
+                    child:
+                        Text(_errorMessage!, style: theme.errorTextStyle)),
               ],
             ),
           ),
-
-        // File list
         if (_files.isNotEmpty) ...[
           const SizedBox(height: 10),
           ..._files.map((file) => _FileItem(
@@ -340,7 +303,8 @@ class _FileQuestionState extends State<FileQuestion> {
                 enabled: widget.enabled,
                 isDownloading: _downloading.contains(file.name),
                 isClearing: _clearing.contains(file.name),
-                canDownload: widget.onDownloadFile != null && file.content != null,
+                canDownload:
+                    widget.onDownloadFile != null && file.content != null,
                 onDownload: () => _handleDownload(file),
                 onClear: () => _handleClear(file),
               )),
@@ -367,61 +331,61 @@ class _UploadZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: uploading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 28),
-        decoration: BoxDecoration(
-          color: theme.backgroundColor,
-          borderRadius: theme.inputBorderRadius,
-          border: Border.all(
-            color: uploading ? theme.primaryColor : theme.borderColor,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        // FIX: InkWell instead of GestureDetector — more reliable tap detection
+        // especially inside ScrollView/PageView
+        onTap: uploading ? null : onTap,
+        borderRadius: theme.inputBorderRadius,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 28),
+          decoration: BoxDecoration(
+            color: theme.backgroundColor,
+            borderRadius: theme.inputBorderRadius,
+            border: Border.all(
+              color: uploading ? theme.primaryColor : theme.borderColor,
+            ),
           ),
-        ),
-        child: uploading
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: theme.primaryColor,
+          child: uploading
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.5, color: theme.primaryColor),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Uploading...',
-                      style: TextStyle(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.w500)),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cloud_upload_outlined,
-                      size: 36, color: theme.primaryColor),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap to upload',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  if (accepted != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Accepted: $accepted',
-                      style: theme.questionDescriptionStyle,
-                    ),
+                    const SizedBox(height: 8),
+                    Text('Uploading...',
+                        style: TextStyle(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.w500)),
                   ],
-                ],
-              ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_upload_outlined,
+                        size: 36, color: theme.primaryColor),
+                    const SizedBox(height: 8),
+                    Text('Tap to upload',
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        )),
+                    if (accepted != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Accepted: $accepted',
+                          style: theme.questionDescriptionStyle),
+                    ],
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -463,28 +427,23 @@ class _FileItem extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Image preview
           if (isImage && file.content != null)
             ClipRRect(
               borderRadius: BorderRadius.only(
                 topLeft: theme.inputBorderRadius.topLeft,
                 topRight: theme.inputBorderRadius.topRight,
               ),
-              child: Image.network(
-                file.content!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
+              child: Image.network(file.content!,
+                  height: 140,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
             ),
-
-          // File row
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // Icon
                 Container(
                   width: 36,
                   height: 36,
@@ -492,48 +451,38 @@ class _FileItem extends StatelessWidget {
                     color: theme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(_iconFor(file.type), size: 18, color: theme.primaryColor),
+                  child: Icon(_iconFor(file.type),
+                      size: 18, color: theme.primaryColor),
                 ),
                 const SizedBox(width: 10),
-
-                // Name + size
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        file.name,
-                        style: theme.inputTextStyle.copyWith(fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(file.name,
+                          style: theme.inputTextStyle
+                              .copyWith(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis),
                       if (file.size != null)
-                        Text(
-                          _formatSize(file.size!),
-                          style: theme.questionDescriptionStyle.copyWith(fontSize: 11),
-                        ),
+                        Text(_formatSize(file.size!),
+                            style: theme.questionDescriptionStyle
+                                .copyWith(fontSize: 11)),
                     ],
                   ),
                 ),
-
-                // Download
                 if (canDownload)
                   _ActionButton(
-                    loading: isDownloading,
-                    icon: Icons.download_outlined,
-                    color: theme.primaryColor,
-                    onTap: onDownload,
-                  ),
-
+                      loading: isDownloading,
+                      icon: Icons.download_outlined,
+                      color: theme.primaryColor,
+                      onTap: onDownload),
                 const SizedBox(width: 4),
-
-                // Remove
                 if (enabled)
                   _ActionButton(
-                    loading: isClearing,
-                    icon: Icons.close,
-                    color: theme.errorColor,
-                    onTap: onClear,
-                  ),
+                      loading: isClearing,
+                      icon: Icons.close,
+                      color: theme.errorColor,
+                      onTap: onClear),
               ],
             ),
           ),
@@ -545,8 +494,10 @@ class _FileItem extends StatelessWidget {
   IconData _iconFor(String mime) {
     if (mime.startsWith('image/')) return Icons.image_outlined;
     if (mime.contains('pdf')) return Icons.picture_as_pdf_outlined;
-    if (mime.contains('word') || mime.contains('document')) return Icons.description_outlined;
-    if (mime.contains('sheet') || mime.contains('excel')) return Icons.table_chart_outlined;
+    if (mime.contains('word') || mime.contains('document'))
+      return Icons.description_outlined;
+    if (mime.contains('sheet') || mime.contains('excel'))
+      return Icons.table_chart_outlined;
     if (mime.startsWith('video/')) return Icons.videocam_outlined;
     if (mime.startsWith('audio/')) return Icons.audiotrack_outlined;
     return Icons.attach_file;
@@ -554,7 +505,8 @@ class _FileItem extends StatelessWidget {
 
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024)
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
@@ -567,12 +519,11 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionButton({
-    required this.loading,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+  const _ActionButton(
+      {required this.loading,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -584,8 +535,8 @@ class _ActionButton extends StatelessWidget {
         child: loading
             ? Padding(
                 padding: const EdgeInsets.all(6),
-                child: CircularProgressIndicator(strokeWidth: 2, color: color),
-              )
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: color))
             : Icon(icon, size: 20, color: color),
       ),
     );
