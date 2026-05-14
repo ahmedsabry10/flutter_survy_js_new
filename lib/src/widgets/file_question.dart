@@ -106,17 +106,16 @@ class _FileQuestionState extends State<FileQuestion> {
       allowedExtensions = _mimeToExtensions(accepted);
     }
 
+    // FIX: if allowedExtensions is empty after MIME→ext conversion,
+    // fall back to FileType.any — passing FileType.custom with empty list crashes silently.
+    final useCustomType = allowedExtensions != null && allowedExtensions.isNotEmpty;
+
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: widget.question.allowMultiple ?? false,
-        type: (allowedExtensions != null && allowedExtensions.isNotEmpty)
-            ? FileType.custom
-            : FileType.any,
-        allowedExtensions:
-            (allowedExtensions != null && allowedExtensions.isNotEmpty)
-                ? allowedExtensions
-                : null,
-        withData: true, // FIX: load bytes so raw.bytes is always available
+        type: useCustomType ? FileType.custom : FileType.any,
+        allowedExtensions: useCustomType ? allowedExtensions : null,
+        withData: true,
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -132,9 +131,9 @@ class _FileQuestionState extends State<FileQuestion> {
 
       await _handleUpload(picked);
     } catch (e) {
+      debugPrint('[FileQuestion] picker error: $e');
       if (mounted) {
-        setState(
-            () => _errorMessage = 'Could not open file picker: ${e.toString()}');
+        setState(() => _errorMessage = 'Error: ${e.toString()}');
       }
     }
   }
@@ -331,61 +330,61 @@ class _UploadZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        // FIX: InkWell instead of GestureDetector — more reliable tap detection
-        // especially inside ScrollView/PageView
-        onTap: uploading ? null : onTap,
+    // FIX: Use TextButton — buttons always win the gesture arena against
+    // ScrollView, so they fire reliably inside SingleChildScrollView/PageView.
+    // GestureDetector and InkWell both lose to the scroll parent.
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+      onPressed: uploading ? null : onTap,
+      style: TextButton.styleFrom(
+      backgroundColor: theme.backgroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      shape: RoundedRectangleBorder(
         borderRadius: theme.inputBorderRadius,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 28),
-          decoration: BoxDecoration(
-            color: theme.backgroundColor,
-            borderRadius: theme.inputBorderRadius,
-            border: Border.all(
-              color: uploading ? theme.primaryColor : theme.borderColor,
-            ),
-          ),
-          child: uploading
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2.5, color: theme.primaryColor),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Uploading...',
-                        style: TextStyle(
-                            color: theme.primaryColor,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined,
-                        size: 36, color: theme.primaryColor),
-                    const SizedBox(height: 8),
-                    Text('Tap to upload',
-                        style: TextStyle(
+      side: BorderSide(
+        color: uploading ? theme.primaryColor : theme.borderColor,
+      ),
+      ),
+      ),
+        child: uploading
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: theme.primaryColor),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Uploading...',
+                      style: TextStyle(
                           color: theme.primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        )),
-                    if (accepted != null) ...[
-                      const SizedBox(height: 4),
-                      Text('Accepted: $accepted',
-                          style: theme.questionDescriptionStyle),
-                    ],
+                          fontWeight: FontWeight.w500)),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cloud_upload_outlined,
+                      size: 36, color: theme.primaryColor),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap to upload',
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (accepted != null) ...[
+                    const SizedBox(height: 4),
+                    Text('Accepted: $accepted',
+                        style: theme.questionDescriptionStyle),
                   ],
-                ),
-        ),
+                ],
+              ),
       ),
     );
   }
