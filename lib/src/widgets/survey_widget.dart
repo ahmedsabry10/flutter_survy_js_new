@@ -151,36 +151,48 @@ class _SurveyBody extends StatelessWidget {
 
           // Questions
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Page title
-                  if (page.title != null && page.title!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(page.title!, style: theme.surveyTitleStyle.copyWith(fontSize: 18)),
-                    ),
+            child: CustomScrollView(
+              // CustomScrollView instead of SingleChildScrollView
+              // fixes gesture conflict: file picker TextButton and
+              // signature Listener both receive events correctly
+              // because SliverList doesn't compete in the gesture arena
+              physics: const ClampingScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      // Page title
+                      if (page.title != null && page.title!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(page.title!,
+                              style: theme.surveyTitleStyle
+                                  .copyWith(fontSize: 18)),
+                        ),
 
-                  // Questions list
-                  ...page.elements.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final question = entry.value;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: theme.questionSpacing),
-                      child: QuestionWidget(
-                        question: question,
-                        controller: controller,
-                        questionNumber: survey.showQuestionNumbers ? index + 1 : null,
-                        onUploadFile: onUploadFile,
-                        onDownloadFile: onDownloadFile,
-                        onClearFile: onClearFile,
-                      ),
-                    );
-                  }),
-                ],
-              ),
+                      // Questions
+                      ...page.elements.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final question = entry.value;
+                        return Padding(
+                          padding:
+                              EdgeInsets.only(bottom: theme.questionSpacing),
+                          child: QuestionWidget(
+                            question: question,
+                            controller: controller,
+                            questionNumber:
+                                survey.showQuestionNumbers ? index + 1 : null,
+                            onUploadFile: onUploadFile,
+                            onDownloadFile: onDownloadFile,
+                            onClearFile: onClearFile,
+                          ),
+                        );
+                      }),
+                    ]),
+                  ),
+                ),
+              ],
             ),
           ),
 

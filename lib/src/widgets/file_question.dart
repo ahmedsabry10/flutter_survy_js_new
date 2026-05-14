@@ -3,7 +3,6 @@ import 'package:file_picker/file_picker.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
-/// Represents a single uploaded file — same structure as SurveyJS web.
 class SurveyFile {
   final String name;
   final String type;
@@ -106,9 +105,8 @@ class _FileQuestionState extends State<FileQuestion> {
       allowedExtensions = _mimeToExtensions(accepted);
     }
 
-    // FIX: if allowedExtensions is empty after MIME→ext conversion,
-    // fall back to FileType.any — passing FileType.custom with empty list crashes silently.
-    final useCustomType = allowedExtensions != null && allowedExtensions.isNotEmpty;
+    final useCustomType =
+        allowedExtensions != null && allowedExtensions.isNotEmpty;
 
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -125,7 +123,7 @@ class _FileQuestionState extends State<FileQuestion> {
           name: pf.name,
           type: _extensionToMime(pf.extension ?? ''),
           size: pf.size,
-          raw: pf, // PlatformFile — consumer can read pf.bytes or pf.path
+          raw: pf,
         );
       }).toList();
 
@@ -216,9 +214,13 @@ class _FileQuestionState extends State<FileQuestion> {
       'image/bmp': ['bmp'],
       'application/pdf': ['pdf'],
       'application/msword': ['doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [
+        'docx'
+      ],
       'application/vnd.ms-excel': ['xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+        'xlsx'
+      ],
       'text/plain': ['txt'],
       'text/csv': ['csv'],
       'video/mp4': ['mp4'],
@@ -248,9 +250,11 @@ class _FileQuestionState extends State<FileQuestion> {
       'webp': 'image/webp',
       'pdf': 'application/pdf',
       'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'txt': 'text/plain',
       'csv': 'text/csv',
       'mp4': 'video/mp4',
@@ -289,8 +293,7 @@ class _FileQuestionState extends State<FileQuestion> {
                 Icon(Icons.error_outline, size: 14, color: theme.errorColor),
                 const SizedBox(width: 4),
                 Expanded(
-                    child:
-                        Text(_errorMessage!, style: theme.errorTextStyle)),
+                    child: Text(_errorMessage!, style: theme.errorTextStyle)),
               ],
             ),
           ),
@@ -315,7 +318,7 @@ class _FileQuestionState extends State<FileQuestion> {
 
 // ─── Upload Zone ─────────────────────────────────────────────────────────────
 
-class _UploadZone extends StatelessWidget {
+class _UploadZone extends StatefulWidget {
   final bool uploading;
   final String? accepted;
   final SurveyTheme theme;
@@ -329,25 +332,43 @@ class _UploadZone extends StatelessWidget {
   });
 
   @override
+  State<_UploadZone> createState() => _UploadZoneState();
+}
+
+class _UploadZoneState extends State<_UploadZone> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    // FIX: Use TextButton — buttons always win the gesture arena against
-    // ScrollView, so they fire reliably inside SingleChildScrollView/PageView.
-    // GestureDetector and InkWell both lose to the scroll parent.
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton(
-      onPressed: uploading ? null : onTap,
-      style: TextButton.styleFrom(
-      backgroundColor: theme.backgroundColor,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: theme.inputBorderRadius,
-      side: BorderSide(
-        color: uploading ? theme.primaryColor : theme.borderColor,
-      ),
-      ),
-      ),
-        child: uploading
+    final theme = widget.theme;
+
+    return GestureDetector(
+      // behavior: opaque = receives taps even on transparent areas
+      // and does NOT propagate up to ScrollView
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        if (!widget.uploading) widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        decoration: BoxDecoration(
+          color: _pressed
+              ? theme.primaryColor.withOpacity(0.06)
+              : theme.backgroundColor,
+          borderRadius: theme.inputBorderRadius,
+          border: Border.all(
+            color: widget.uploading || _pressed
+                ? theme.primaryColor
+                : theme.borderColor,
+            width: _pressed ? 1.5 : 1,
+          ),
+        ),
+        child: widget.uploading
             ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -378,9 +399,9 @@ class _UploadZone extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-                  if (accepted != null) ...[
+                  if (widget.accepted != null) ...[
                     const SizedBox(height: 4),
-                    Text('Accepted: $accepted',
+                    Text('Accepted: ${widget.accepted}',
                         style: theme.questionDescriptionStyle),
                   ],
                 ],
@@ -439,8 +460,7 @@ class _FileItem extends StatelessWidget {
                   errorBuilder: (_, __, ___) => const SizedBox.shrink()),
             ),
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Container(
@@ -504,8 +524,7 @@ class _FileItem extends StatelessWidget {
 
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024)
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
@@ -527,6 +546,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: loading ? null : onTap,
       child: SizedBox(
         width: 32,

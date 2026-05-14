@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
-/// Renders a SurveyJS `signaturepad` question.
-/// Pure Flutter — no external package needed.
 class SignaturePadQuestion extends StatefulWidget {
   final QuestionModel question;
   final dynamic currentValue;
@@ -26,12 +24,6 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
   final List<List<Offset>> _strokes = [];
   List<Offset> _currentStroke = [];
   bool _hasSignature = false;
-
-  // FIX: Use Listener (pointer events) instead of GestureDetector (gesture arena).
-  // GestureDetector competes with the parent PageView/ScrollView and loses,
-  // so pan events never reach the signature pad.
-  // Listener fires at pointer level — before gesture disambiguation — so it
-  // always receives events regardless of parent scroll widgets.
 
   void _onPointerDown(PointerDownEvent e) {
     if (!widget.enabled) return;
@@ -67,39 +59,41 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
   @override
   Widget build(BuildContext context) {
     final theme = SurveyTheme.of(context);
-    final padWidth = widget.question.signatureWidth?.toDouble() ?? double.infinity;
-    final padHeight = widget.question.signatureHeight?.toDouble() ?? 180;
+    final padHeight =
+        widget.question.signatureHeight?.toDouble() ?? 180;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Signature canvas
+        // Canvas
         ClipRRect(
           borderRadius: theme.inputBorderRadius,
           child: Container(
             height: padHeight,
-            width: padWidth == double.infinity ? double.infinity : padWidth,
+            width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: theme.inputBorderRadius,
               border: Border.all(
-                color: _hasSignature ? theme.primaryColor : theme.borderColor,
+                color: _hasSignature
+                    ? theme.primaryColor
+                    : theme.borderColor,
                 width: _hasSignature ? 1.5 : 1,
               ),
             ),
+            // Listener with HitTestBehavior.opaque:
+            // - fires at raw pointer level, BEFORE gesture arena
+            // - opaque means it catches events even on empty/transparent areas
+            // - never competes with or loses to parent ScrollView
             child: Listener(
-              // FIX: Listener instead of GestureDetector
+              behavior: HitTestBehavior.opaque,
               onPointerDown: _onPointerDown,
               onPointerMove: _onPointerMove,
               onPointerUp: _onPointerUp,
-              // HitTestBehavior.opaque ensures we get ALL pointer events
-              // even when the canvas is "empty"
-              behavior: HitTestBehavior.opaque,
               child: CustomPaint(
                 painter: _SignaturePainter(
                   strokes: _strokes,
                   currentStroke: _currentStroke,
-                  penColor: Colors.black87,
                 ),
                 child: _hasSignature
                     ? null
@@ -110,11 +104,10 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
                             Icon(Icons.draw_outlined,
                                 size: 28, color: theme.hintColor),
                             const SizedBox(height: 6),
-                            Text(
-                              'Sign here',
-                              style: TextStyle(
-                                  color: theme.hintColor, fontSize: 14),
-                            ),
+                            Text('Sign here',
+                                style: TextStyle(
+                                    color: theme.hintColor,
+                                    fontSize: 14)),
                           ],
                         ),
                       ),
@@ -123,7 +116,7 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
           ),
         ),
 
-        // Controls row
+        // Controls
         const SizedBox(height: 8),
         Row(
           children: [
@@ -132,12 +125,13 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
                 onPressed: _clear,
                 icon: Icon(Icons.clear, size: 16, color: theme.errorColor),
                 label: Text('Clear',
-                    style: TextStyle(color: theme.errorColor, fontSize: 13)),
+                    style:
+                        TextStyle(color: theme.errorColor, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
-                  side:
-                      BorderSide(color: theme.errorColor.withOpacity(0.5)),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  side: BorderSide(
+                      color: theme.errorColor.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
                       borderRadius: theme.buttonBorderRadius),
                 ),
@@ -165,18 +159,16 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
 class _SignaturePainter extends CustomPainter {
   final List<List<Offset>> strokes;
   final List<Offset> currentStroke;
-  final Color penColor;
 
   const _SignaturePainter({
     required this.strokes,
     required this.currentStroke,
-    required this.penColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = penColor
+      ..color = Colors.black87
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -185,8 +177,8 @@ class _SignaturePainter extends CustomPainter {
     void drawStroke(List<Offset> pts) {
       if (pts.isEmpty) return;
       if (pts.length == 1) {
-        // Single dot
-        canvas.drawCircle(pts.first, 1.5, paint..style = PaintingStyle.fill);
+        canvas.drawCircle(
+            pts.first, 1.5, paint..style = PaintingStyle.fill);
         paint.style = PaintingStyle.stroke;
         return;
       }
@@ -197,7 +189,7 @@ class _SignaturePainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
 
-    for (final stroke in strokes) drawStroke(stroke);
+    for (final s in strokes) drawStroke(s);
     if (currentStroke.isNotEmpty) drawStroke(currentStroke);
   }
 
