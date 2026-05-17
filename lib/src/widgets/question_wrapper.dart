@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
-/// Wraps any question widget with the standard title, description,
-/// required marker, and error message. All question widgets use this.
 class QuestionWrapper extends StatelessWidget {
   final QuestionModel question;
   final Widget child;
@@ -23,38 +21,34 @@ class QuestionWrapper extends StatelessWidget {
     final theme = SurveyTheme.of(context);
     final hasError = errorText != null && errorText!.isNotEmpty;
 
+    // cardBorder from theme — but override with error color if there's an error
+    final effectiveBorder = hasError
+        ? Border.all(color: theme.errorColor, width: 1.5)
+        : theme.cardBorder ?? Border.all(color: theme.borderColor, width: 1);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: theme.questionBackgroundColor,
         borderRadius: theme.cardBorderRadius,
-        border: Border.all(
-          color: hasError ? theme.errorColor : theme.borderColor,
-          width: hasError ? 1.5 : 1,
-        ),
+        border: effectiveBorder,
+        boxShadow: hasError ? null : theme.cardShadow,
       ),
       padding: EdgeInsets.all(theme.cardPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title row
           _buildTitle(theme),
 
-          // Description
           if (question.description != null && question.description!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(
-              question.description!,
-              style: theme.questionDescriptionStyle,
-            ),
+            Text(question.description!, style: theme.questionDescriptionStyle),
           ],
 
           const SizedBox(height: 12),
 
-          // The actual input widget
           child,
 
-          // Error message
           if (hasError) ...[
             const SizedBox(height: 8),
             Row(
@@ -73,8 +67,8 @@ class QuestionWrapper extends StatelessWidget {
   }
 
   Widget _buildTitle(SurveyTheme theme) {
-    final number = questionNumber != null ? '${questionNumber}. ' : '';
-    final required = question.isRequired ? ' *' : '';
+    final number = questionNumber != null ? '$questionNumber. ' : '';
+    const required = ' *';
 
     return RichText(
       text: TextSpan(
@@ -83,17 +77,13 @@ class QuestionWrapper extends StatelessWidget {
           if (number.isNotEmpty)
             TextSpan(
               text: number,
-              style: theme.questionTitleStyle.copyWith(
-                color: theme.hintColor,
-              ),
+              style: theme.questionTitleStyle.copyWith(color: theme.hintColor),
             ),
           TextSpan(text: question.displayTitle),
-          if (required.isNotEmpty)
+          if (question.isRequired)
             TextSpan(
               text: required,
-              style: theme.questionTitleStyle.copyWith(
-                color: theme.errorColor,
-              ),
+              style: theme.questionTitleStyle.copyWith(color: theme.errorColor),
             ),
         ],
       ),
