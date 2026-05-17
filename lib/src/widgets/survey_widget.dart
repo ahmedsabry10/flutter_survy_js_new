@@ -5,35 +5,14 @@ import '../theme/survey_theme.dart';
 import 'question_widget.dart';
 import 'file_question.dart';
 
-/// The main widget. Drop it anywhere in your widget tree.
-///
-/// ```dart
-/// SurveyWidget(
-///   survey: surveyFromJson(myJson),
-///   onSubmit: (answers) => print(answers),
-/// )
-/// ```
 class SurveyWidget extends StatefulWidget {
   final SurveyModel survey;
   final SurveyTheme? theme;
-
-  // ─── Survey callbacks ─────────────────────────────────────────────────────
   final ValueChanged<Map<String, dynamic>>? onSubmit;
   final ValueChanged<Map<String, dynamic>>? onChange;
   final VoidCallback? onComplete;
-
-  // ─── File callbacks (mirrors SurveyJS web API) ────────────────────────────
-
-  /// Called when user picks files. Upload them here and return with content set.
-  /// Same as SurveyJS `onUploadFiles` event.
   final OnUploadFile? onUploadFile;
-
-  /// Called when user taps the download icon on a file.
-  /// Same as SurveyJS `onDownloadFile` event.
   final OnDownloadFile? onDownloadFile;
-
-  /// Called when user removes a file. Return true to confirm removal.
-  /// Same as SurveyJS `onClearFiles` event.
   final OnClearFile? onClearFile;
 
   const SurveyWidget({
@@ -75,6 +54,8 @@ class _SurveyWidgetState extends State<SurveyWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // widget.theme → explicit (highest priority)
+    // otherwise → SurveyTheme.of() handles both: inherited provider OR auto brightness
     final theme = widget.theme ?? SurveyTheme.of(context);
 
     return SurveyThemeProvider(
@@ -89,7 +70,6 @@ class _SurveyWidgetState extends State<SurveyWidget> {
               onRestart: _controller.reset,
             );
           }
-
           return _SurveyBody(
             controller: _controller,
             theme: theme,
@@ -136,11 +116,8 @@ class _SurveyBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Survey title + description (first page only)
           if (controller.isFirstPage && survey.title != null)
             _SurveyHeader(survey: survey, theme: theme),
-
-          // Progress bar
           if (survey.showProgressBar && survey.isMultiPage)
             _ProgressBar(
               progress: controller.progress,
@@ -148,41 +125,27 @@ class _SurveyBody extends StatelessWidget {
               currentPage: controller.currentPageIndex + 1,
               totalPages: survey.pageCount,
             ),
-
-          // Questions
           Expanded(
             child: CustomScrollView(
-              // CustomScrollView instead of SingleChildScrollView
-              // fixes gesture conflict: file picker TextButton and
-              // signature Listener both receive events correctly
-              // because SliverList doesn't compete in the gesture arena
               physics: const ClampingScrollPhysics(),
               slivers: [
                 SliverPadding(
                   padding: const EdgeInsets.all(16),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      // Page title
                       if (page.title != null && page.title!.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text(page.title!,
-                              style: theme.surveyTitleStyle
-                                  .copyWith(fontSize: 18)),
+                              style: theme.surveyTitleStyle.copyWith(fontSize: 18)),
                         ),
-
-                      // Questions
                       ...page.elements.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final question = entry.value;
                         return Padding(
-                          padding:
-                              EdgeInsets.only(bottom: theme.questionSpacing),
+                          padding: EdgeInsets.only(bottom: theme.questionSpacing),
                           child: QuestionWidget(
-                            question: question,
+                            question: entry.value,
                             controller: controller,
-                            questionNumber:
-                                survey.showQuestionNumbers ? index + 1 : null,
+                            questionNumber: survey.showQuestionNumbers ? entry.key + 1 : null,
                             onUploadFile: onUploadFile,
                             onDownloadFile: onDownloadFile,
                             onClearFile: onClearFile,
@@ -195,13 +158,7 @@ class _SurveyBody extends StatelessWidget {
               ],
             ),
           ),
-
-          // Navigation buttons
-          _NavigationBar(
-            controller: controller,
-            theme: theme,
-            onSubmit: onSubmit,
-          ),
+          _NavigationBar(controller: controller, theme: theme, onSubmit: onSubmit),
         ],
       ),
     );
@@ -260,14 +217,10 @@ class _ProgressBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Page $currentPage of $totalPages',
-                style: TextStyle(fontSize: 12, color: theme.hintColor),
-              ),
-              Text(
-                '${(progress * 100).round()}%',
-                style: TextStyle(fontSize: 12, color: theme.primaryColor, fontWeight: FontWeight.w600),
-              ),
+              Text('Page $currentPage of $totalPages',
+                  style: TextStyle(fontSize: 12, color: theme.hintColor)),
+              Text('${(progress * 100).round()}%',
+                  style: TextStyle(fontSize: 12, color: theme.primaryColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -307,7 +260,6 @@ class _NavigationBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Prev button
           if (!controller.isFirstPage && controller.survey.showPrevButton)
             Expanded(
               child: OutlinedButton(
@@ -315,19 +267,14 @@ class _NavigationBar extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.textColor,
                   side: BorderSide(color: theme.borderColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: theme.buttonBorderRadius,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: theme.buttonBorderRadius),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text('Previous'),
               ),
             ),
-
           if (!controller.isFirstPage && controller.survey.showPrevButton)
             const SizedBox(width: 12),
-
-          // Next / Submit button
           Expanded(
             flex: 2,
             child: ElevatedButton(
@@ -344,9 +291,7 @@ class _NavigationBar extends StatelessWidget {
                     ? theme.submitButtonColor
                     : theme.nextButtonColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: theme.buttonBorderRadius,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: theme.buttonBorderRadius),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 elevation: 0,
               ),
@@ -385,11 +330,9 @@ class _CompletedView extends StatelessWidget {
           children: [
             Icon(Icons.check_circle_outline_rounded, size: 72, color: theme.primaryColor),
             const SizedBox(height: 20),
-            Text(
-              message,
-              style: theme.surveyTitleStyle.copyWith(fontSize: 20),
-              textAlign: TextAlign.center,
-            ),
+            Text(message,
+                style: theme.surveyTitleStyle.copyWith(fontSize: 20),
+                textAlign: TextAlign.center),
           ],
         ),
       ),

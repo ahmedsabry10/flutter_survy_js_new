@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Controls the visual appearance of all survey widgets.
-/// Pass a custom [SurveyTheme] to [SurveyWidget] to override defaults.
 class SurveyTheme {
   // ─── Colors ───────────────────────────────────────────────────────────────
   final Color primaryColor;
@@ -55,44 +53,14 @@ class SurveyTheme {
     this.ratingSelectedColor = const Color(0xFF1AB394),
     this.ratingUnselectedColor = const Color(0xFFDDDDDD),
     this.progressBarColor = const Color(0xFF1AB394),
-    this.surveyTitleStyle = const TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: Color(0xFF111111),
-    ),
-    this.surveyDescriptionStyle = const TextStyle(
-      fontSize: 15,
-      color: Color(0xFF666666),
-      height: 1.5,
-    ),
-    this.questionTitleStyle = const TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: Color(0xFF111111),
-      height: 1.4,
-    ),
-    this.questionDescriptionStyle = const TextStyle(
-      fontSize: 13,
-      color: Color(0xFF888888),
-      height: 1.4,
-    ),
-    this.inputTextStyle = const TextStyle(
-      fontSize: 15,
-      color: Color(0xFF333333),
-    ),
-    this.errorTextStyle = const TextStyle(
-      fontSize: 12,
-      color: Color(0xFFE74C3C),
-    ),
-    this.choiceLabelStyle = const TextStyle(
-      fontSize: 15,
-      color: Color(0xFF333333),
-    ),
-    this.buttonTextStyle = const TextStyle(
-      fontSize: 15,
-      fontWeight: FontWeight.w600,
-      color: Colors.white,
-    ),
+    this.surveyTitleStyle = const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111111)),
+    this.surveyDescriptionStyle = const TextStyle(fontSize: 15, color: Color(0xFF666666), height: 1.5),
+    this.questionTitleStyle = const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111111), height: 1.4),
+    this.questionDescriptionStyle = const TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.4),
+    this.inputTextStyle = const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+    this.errorTextStyle = const TextStyle(fontSize: 12, color: Color(0xFFE74C3C)),
+    this.choiceLabelStyle = const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+    this.buttonTextStyle = const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
     this.inputBorderRadius = const BorderRadius.all(Radius.circular(4)),
     this.cardBorderRadius = const BorderRadius.all(Radius.circular(8)),
     this.buttonBorderRadius = const BorderRadius.all(Radius.circular(4)),
@@ -104,11 +72,91 @@ class SurveyTheme {
     this.submitButtonColor = const Color(0xFF1AB394),
   });
 
-  /// Access the theme from any widget using [SurveyTheme.of(context)]
-  static SurveyTheme of(BuildContext context) {
-    final inherited = context.dependOnInheritedWidgetOfExactType<_SurveyThemeInherited>();
-    return inherited?.theme ?? const SurveyTheme();
+  // ─── Light factory ────────────────────────────────────────────────────────
+
+  factory SurveyTheme.light({Color primaryColor = const Color(0xFF1AB394)}) {
+    return SurveyTheme(
+      primaryColor: primaryColor,
+      backgroundColor: const Color(0xFFF5F5F5),
+      questionBackgroundColor: Colors.white,
+      borderColor: const Color(0xFFDDDDDD),
+      focusBorderColor: primaryColor,
+      errorColor: const Color(0xFFE74C3C),
+      textColor: const Color(0xFF333333),
+      titleColor: const Color(0xFF111111),
+      hintColor: const Color(0xFF999999),
+      disabledColor: const Color(0xFFCCCCCC),
+      ratingSelectedColor: primaryColor,
+      ratingUnselectedColor: const Color(0xFFDDDDDD),
+      progressBarColor: primaryColor,
+      surveyTitleStyle: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111111)),
+      surveyDescriptionStyle: const TextStyle(fontSize: 15, color: Color(0xFF666666), height: 1.5),
+      questionTitleStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111111), height: 1.4),
+      questionDescriptionStyle: const TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.4),
+      inputTextStyle: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+      errorTextStyle: const TextStyle(fontSize: 12, color: Color(0xFFE74C3C)),
+      choiceLabelStyle: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+      buttonTextStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+      nextButtonColor: primaryColor,
+      prevButtonColor: const Color(0xFF999999),
+      submitButtonColor: primaryColor,
+    );
   }
+
+  // ─── Dark factory ─────────────────────────────────────────────────────────
+
+  factory SurveyTheme.dark({Color primaryColor = const Color(0xFF1AB394)}) {
+    return SurveyTheme(
+      primaryColor: primaryColor,
+      backgroundColor: const Color(0xFF121212),
+      questionBackgroundColor: const Color(0xFF1E1E1E),
+      borderColor: const Color(0xFF2C2C2C),
+      focusBorderColor: primaryColor,
+      errorColor: const Color(0xFFCF6679),
+      textColor: const Color(0xFFE0E0E0),
+      titleColor: const Color(0xFFFFFFFF),
+      hintColor: const Color(0xFF757575),
+      disabledColor: const Color(0xFF424242),
+      ratingSelectedColor: primaryColor,
+      ratingUnselectedColor: const Color(0xFF2C2C2C),
+      progressBarColor: primaryColor,
+      surveyTitleStyle: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFFFFFF)),
+      surveyDescriptionStyle: const TextStyle(fontSize: 15, color: Color(0xFF9E9E9E), height: 1.5),
+      questionTitleStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFFFFFFF), height: 1.4),
+      questionDescriptionStyle: const TextStyle(fontSize: 13, color: Color(0xFF757575), height: 1.4),
+      inputTextStyle: const TextStyle(fontSize: 15, color: Color(0xFFE0E0E0)),
+      errorTextStyle: const TextStyle(fontSize: 12, color: Color(0xFFCF6679)),
+      choiceLabelStyle: const TextStyle(fontSize: 15, color: Color(0xFFE0E0E0)),
+      buttonTextStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+      nextButtonColor: primaryColor,
+      prevButtonColor: const Color(0xFF424242),
+      submitButtonColor: primaryColor,
+    );
+  }
+
+  // ─── Auto-detect from Flutter brightness ──────────────────────────────────
+
+  factory SurveyTheme.fromBrightness(
+    BuildContext context, {
+    Color primaryColor = const Color(0xFF1AB394),
+  }) {
+    final brightness = Theme.of(context).brightness;
+    return brightness == Brightness.dark
+        ? SurveyTheme.dark(primaryColor: primaryColor)
+        : SurveyTheme.light(primaryColor: primaryColor);
+  }
+
+  // ─── of() — used by all child widgets (always returns a value) ────────────
+  //
+  // Priority: SurveyThemeProvider in tree → auto-detect from brightness
+  // This means child widgets never break — they always get a valid theme.
+
+  static SurveyTheme of(BuildContext context) {
+    final inherited = context.dependOnInheritedWidgetOfExactType<SurveyThemeInherited>();
+    return inherited?.theme ?? SurveyTheme.fromBrightness(context);
+  }
+
+  // ─── copyWith ─────────────────────────────────────────────────────────────
 
   SurveyTheme copyWith({
     Color? primaryColor,
@@ -128,10 +176,16 @@ class SurveyTheme {
     Color? prevButtonColor,
     Color? submitButtonColor,
     TextStyle? surveyTitleStyle,
+    TextStyle? surveyDescriptionStyle,
     TextStyle? questionTitleStyle,
+    TextStyle? questionDescriptionStyle,
+    TextStyle? inputTextStyle,
+    TextStyle? errorTextStyle,
     TextStyle? choiceLabelStyle,
+    TextStyle? buttonTextStyle,
     double? questionSpacing,
     double? cardPadding,
+    EdgeInsets? inputPadding,
     BorderRadius? inputBorderRadius,
     BorderRadius? cardBorderRadius,
     BorderRadius? buttonBorderRadius,
@@ -154,10 +208,16 @@ class SurveyTheme {
       prevButtonColor: prevButtonColor ?? this.prevButtonColor,
       submitButtonColor: submitButtonColor ?? this.submitButtonColor,
       surveyTitleStyle: surveyTitleStyle ?? this.surveyTitleStyle,
+      surveyDescriptionStyle: surveyDescriptionStyle ?? this.surveyDescriptionStyle,
       questionTitleStyle: questionTitleStyle ?? this.questionTitleStyle,
+      questionDescriptionStyle: questionDescriptionStyle ?? this.questionDescriptionStyle,
+      inputTextStyle: inputTextStyle ?? this.inputTextStyle,
+      errorTextStyle: errorTextStyle ?? this.errorTextStyle,
       choiceLabelStyle: choiceLabelStyle ?? this.choiceLabelStyle,
+      buttonTextStyle: buttonTextStyle ?? this.buttonTextStyle,
       questionSpacing: questionSpacing ?? this.questionSpacing,
       cardPadding: cardPadding ?? this.cardPadding,
+      inputPadding: inputPadding ?? this.inputPadding,
       inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
       cardBorderRadius: cardBorderRadius ?? this.cardBorderRadius,
       buttonBorderRadius: buttonBorderRadius ?? this.buttonBorderRadius,
@@ -165,20 +225,22 @@ class SurveyTheme {
   }
 }
 
-/// InheritedWidget that provides [SurveyTheme] down the widget tree
-class _SurveyThemeInherited extends InheritedWidget {
+// ─── InheritedWidget (public) ─────────────────────────────────────────────────
+
+class SurveyThemeInherited extends InheritedWidget {
   final SurveyTheme theme;
 
-  const _SurveyThemeInherited({
+  const SurveyThemeInherited({
     required this.theme,
     required super.child,
   });
 
   @override
-  bool updateShouldNotify(_SurveyThemeInherited old) => theme != old.theme;
+  bool updateShouldNotify(SurveyThemeInherited old) => theme != old.theme;
 }
 
-/// Wrap your survey widget tree with this to provide a custom theme
+// ─── SurveyThemeProvider ──────────────────────────────────────────────────────
+
 class SurveyThemeProvider extends StatelessWidget {
   final SurveyTheme theme;
   final Widget child;
@@ -191,6 +253,6 @@ class SurveyThemeProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SurveyThemeInherited(theme: theme, child: child);
+    return SurveyThemeInherited(theme: theme, child: child);
   }
 }
