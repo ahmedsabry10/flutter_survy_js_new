@@ -1,5 +1,18 @@
 import 'question_model.dart';
 
+/// Reads a SurveyJS localised string field.
+/// Accepts both plain String and {"ar": "...", "default": "..."} objects.
+/// Priority: [locale] key → "default" key → toString().
+String? _localised(dynamic raw, {String locale = 'ar'}) {
+  if (raw == null) return null;
+  if (raw is String) return raw.isEmpty ? null : raw;
+  if (raw is Map) {
+    final v = raw[locale] ?? raw['default'];
+    return v?.toString();
+  }
+  return raw.toString();
+}
+
 class PageModel {
   final String name;
   final String? title;
@@ -17,7 +30,7 @@ class PageModel {
     this.visible = true,
   });
 
-  factory PageModel.fromJson(Map<String, dynamic> json) {
+  factory PageModel.fromJson(Map<String, dynamic> json, {String locale = 'ar'}) {
     final rawElements = json['elements'] ?? json['questions'] ?? [];
     final elements = rawElements is List
         ? rawElements
@@ -28,8 +41,8 @@ class PageModel {
 
     return PageModel(
       name: json['name']?.toString() ?? '',
-      title: json['title']?.toString(),
-      description: json['description']?.toString(),
+      title: _localised(json['title'], locale: locale),
+      description: _localised(json['description'], locale: locale),
       elements: elements,
       visibleIf: json['visibleIf']?.toString(),
       visible: json['visible'] as bool? ?? true,
@@ -111,15 +124,18 @@ class SurveyModel {
   bool get isMultiPage => pages.length > 1;
 
   factory SurveyModel.fromJson(Map<String, dynamic> json) {
+    // Read locale first so we can pass it to child parsers
+    final locale = json['locale']?.toString() ?? 'ar';
+
     List<PageModel> pages;
     if (json.containsKey('pages') && json['pages'] is List) {
       pages = (json['pages'] as List)
           .whereType<Map<String, dynamic>>()
-          .map((p) => PageModel.fromJson(p))
+          .map((p) => PageModel.fromJson(p, locale: locale))
           .toList();
     } else {
       final elements = json['elements'] ?? json['questions'] ?? [];
-      pages = [PageModel.fromJson({'name': 'page1', 'elements': elements})];
+      pages = [PageModel.fromJson({'name': 'page1', 'elements': elements}, locale: locale)];
     }
 
     // showProgressBar can be bool or string "top"/"bottom"/"both"
@@ -145,11 +161,11 @@ class SurveyModel {
 
     return SurveyModel(
       pages: pages,
-      title: json['title']?.toString(),
-      description: json['description']?.toString(),
-      completedHtml: json['completedHtml']?.toString(),
+      title: _localised(json['title'], locale: locale),
+      description: _localised(json['description'], locale: locale),
+      completedHtml: _localised(json['completedHtml'], locale: locale),
       completedHtmlOnCondition: parseListOfMaps(json['completedHtmlOnCondition']),
-      locale: json['locale']?.toString(),
+      locale: locale,
       logo: json['logo']?.toString(),
       logoPosition: json['logoPosition']?.toString(),
       calculatedValues: parseListOfMaps(json['calculatedValues']),
@@ -158,10 +174,10 @@ class SurveyModel {
       showPrevButton: json['showPrevButton'] as bool? ?? true,
       showProgressBar: parseProgressBar(json['showProgressBar']),
       progressBarType: json['progressBarType']?.toString(),
-      completeText: json['completeText']?.toString(),
-      startSurveyText: json['startSurveyText']?.toString(),
-      previewText: json['previewText']?.toString(),
-      editText: json['editText']?.toString(),
+      completeText: _localised(json['completeText'], locale: locale),
+      startSurveyText: _localised(json['startSurveyText'], locale: locale),
+      previewText: _localised(json['previewText'], locale: locale),
+      editText: _localised(json['editText'], locale: locale),
       questionTitleLocation: json['questionTitleLocation']?.toString(),
       showQuestionNumbers: parseShowNumbers(json['showQuestionNumbers']),
       requiredText: json['requiredText']?.toString(),

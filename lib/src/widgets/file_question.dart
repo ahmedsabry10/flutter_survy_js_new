@@ -121,6 +121,7 @@ class _FileQuestionState extends State<FileQuestion> {
     final useCustomType = allowedExtensions != null && allowedExtensions.isNotEmpty;
 
     try {
+      // FIX: FilePicker is abstract — use FilePicker.platform (the singleton) to call pickFiles.
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: widget.question.allowMultiple ?? false,
         type: useCustomType ? FileType.custom : FileType.any,

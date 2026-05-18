@@ -13,6 +13,8 @@ dependencies:
   flutter:
     sdk: flutter
   file_picker: ^8.0.0
+  mobile_scanner: ^7.2.0   # QR / Barcode scanner
+  hijri: ^3.0.0             # Hijri calendar calculations
 
 dev_dependencies:
   flutter_test:
