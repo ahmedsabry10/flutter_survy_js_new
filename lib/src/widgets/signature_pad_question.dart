@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
@@ -21,21 +23,75 @@ class SignaturePadQuestion extends StatefulWidget {
 }
 
 class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
+  // Strokes are stored in normalized [0..1] coordinates relative to the
+  // canvas size, so the signature renders correctly at any canvas width/height.
   final List<List<Offset>> _strokes = [];
   List<Offset> _currentStroke = [];
   bool _hasSignature = false;
+  Size _canvasSize = Size.zero;
+
+  // Convert a raw local pointer position into normalized [0..1] coordinates.
+  Offset _normalize(Offset local) {
+    final w = _canvasSize.width;
+    final h = _canvasSize.height;
+    if (w <= 0 || h <= 0) return Offset.zero;
+    return Offset(
+      (local.dx / w).clamp(0.0, 1.0),
+      (local.dy / h).clamp(0.0, 1.0),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  // Serialize strokes to a JSON string of [[ [dx, dy], ... ], ...].
+  String _encode() {
+    return jsonEncode(
+      _strokes
+          .map((stroke) => stroke.map((p) => [p.dx, p.dy]).toList())
+          .toList(),
+    );
+  }
+
+  // Rebuild strokes from a previously saved value.
+  // Safely ignores empty values and the legacy 'signature_N_strokes' format.
+  void _restore() {
+    final value = widget.currentValue;
+    if (value is! String || value.isEmpty) return;
+    if (value.startsWith('signature_')) return; // legacy placeholder, no data
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! List) return;
+      for (final stroke in decoded) {
+        if (stroke is! List) continue;
+        final pts = <Offset>[];
+        for (final p in stroke) {
+          if (p is List && p.length >= 2 && p[0] is num && p[1] is num) {
+            pts.add(Offset((p[0] as num).toDouble(), (p[1] as num).toDouble()));
+          }
+        }
+        if (pts.isNotEmpty) _strokes.add(pts);
+      }
+      if (_strokes.isNotEmpty) _hasSignature = true;
+    } catch (_) {
+      // Malformed value — leave the canvas empty.
+    }
+  }
 
   void _onPointerDown(PointerDownEvent e) {
     if (!widget.enabled) return;
     setState(() {
-      _currentStroke = [e.localPosition];
+      _currentStroke = [_normalize(e.localPosition)];
       _hasSignature = true;
     });
   }
 
   void _onPointerMove(PointerMoveEvent e) {
     if (!widget.enabled) return;
-    setState(() => _currentStroke.add(e.localPosition));
+    setState(() => _currentStroke.add(_normalize(e.localPosition)));
   }
 
   void _onPointerUp(PointerUpEvent e) {
@@ -44,7 +100,7 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
       _strokes.add(List.from(_currentStroke));
       _currentStroke = [];
     });
-    widget.onChanged('signature_${_strokes.length}_strokes');
+    widget.onChanged(_encode());
   }
 
   void _clear() {
@@ -85,33 +141,38 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
             // - fires at raw pointer level, BEFORE gesture arena
             // - opaque means it catches events even on empty/transparent areas
             // - never competes with or loses to parent ScrollView
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: _onPointerDown,
-              onPointerMove: _onPointerMove,
-              onPointerUp: _onPointerUp,
-              child: CustomPaint(
-                painter: _SignaturePainter(
-                  strokes: _strokes,
-                  currentStroke: _currentStroke,
-                ),
-                child: _hasSignature
-                    ? null
-                    : Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.draw_outlined,
-                                size: 28, color: theme.hintColor),
-                            const SizedBox(height: 6),
-                            Text('Sign here',
-                                style: TextStyle(
-                                    color: theme.hintColor,
-                                    fontSize: 14)),
-                          ],
-                        ),
-                      ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                _canvasSize = Size(constraints.maxWidth, padHeight);
+                return Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: _onPointerDown,
+                  onPointerMove: _onPointerMove,
+                  onPointerUp: _onPointerUp,
+                  child: CustomPaint(
+                    painter: _SignaturePainter(
+                      strokes: _strokes,
+                      currentStroke: _currentStroke,
+                    ),
+                    child: _hasSignature
+                        ? null
+                        : Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.draw_outlined,
+                                    size: 28, color: theme.hintColor),
+                                const SizedBox(height: 6),
+                                Text('Sign here',
+                                    style: TextStyle(
+                                        color: theme.hintColor,
+                                        fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -174,17 +235,22 @@ class _SignaturePainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
+    // Strokes are stored normalized [0..1]; scale back to the actual canvas.
+    Offset toPixel(Offset p) => Offset(p.dx * size.width, p.dy * size.height);
+
     void drawStroke(List<Offset> pts) {
       if (pts.isEmpty) return;
       if (pts.length == 1) {
         canvas.drawCircle(
-            pts.first, 1.5, paint..style = PaintingStyle.fill);
+            toPixel(pts.first), 1.5, paint..style = PaintingStyle.fill);
         paint.style = PaintingStyle.stroke;
         return;
       }
-      final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+      final first = toPixel(pts.first);
+      final path = Path()..moveTo(first.dx, first.dy);
       for (int i = 1; i < pts.length; i++) {
-        path.lineTo(pts[i].dx, pts[i].dy);
+        final pt = toPixel(pts[i]);
+        path.lineTo(pt.dx, pt.dy);
       }
       canvas.drawPath(path, paint);
     }
