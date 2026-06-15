@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(flutter analyze lib/src/widgets/signature_pad_question.dart)"
+      "PowerShell(flutter analyze lib/src/widgets/signature_pad_question.dart)",
+      "PowerShell(flutter analyze lib/src/widgets/survey_widget.dart)"
     ]
   }
 }

@@ -8,6 +8,11 @@ import 'file_question.dart';
 class SurveyWidget extends StatefulWidget {
   final SurveyModel survey;
   final SurveyTheme? theme;
+
+  /// Padding around the scrollable survey content (questions and page title).
+  /// Defaults to `EdgeInsets.all(16)`.
+  final EdgeInsets contentPadding;
+
   final ValueChanged<Map<String, dynamic>>? onSubmit;
   final ValueChanged<Map<String, dynamic>>? onChange;
   final VoidCallback? onComplete;
@@ -19,6 +24,7 @@ class SurveyWidget extends StatefulWidget {
     super.key,
     required this.survey,
     this.theme,
+    this.contentPadding = const EdgeInsets.all(16),
     this.onSubmit,
     this.onChange,
     this.onComplete,
@@ -73,6 +79,7 @@ class _SurveyWidgetState extends State<SurveyWidget> {
           return _SurveyBody(
             controller: _controller,
             theme: theme,
+            contentPadding: widget.contentPadding,
             onUploadFile: widget.onUploadFile,
             onDownloadFile: widget.onDownloadFile,
             onClearFile: widget.onClearFile,
@@ -92,6 +99,7 @@ class _SurveyWidgetState extends State<SurveyWidget> {
 class _SurveyBody extends StatelessWidget {
   final SurveyController controller;
   final SurveyTheme theme;
+  final EdgeInsets contentPadding;
   final VoidCallback onSubmit;
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
@@ -100,6 +108,7 @@ class _SurveyBody extends StatelessWidget {
   const _SurveyBody({
     required this.controller,
     required this.theme,
+    required this.contentPadding,
     required this.onSubmit,
     this.onUploadFile,
     this.onDownloadFile,
@@ -130,7 +139,7 @@ class _SurveyBody extends StatelessWidget {
               physics: const ClampingScrollPhysics(),
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.all(16),
+                  padding: contentPadding,
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       if (page.title != null && page.title!.isNotEmpty)
