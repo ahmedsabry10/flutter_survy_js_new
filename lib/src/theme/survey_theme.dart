@@ -36,6 +36,8 @@ class SurveyTheme {
   final Color ratingSelectedColor;
   final Color ratingUnselectedColor;
   final Color progressBarColor;
+  final Color signaturePenColor;
+  final Color signatureBackgroundColor;
 
   // ─── Typography ───────────────────────────────────────────────────────────
   final TextStyle surveyTitleStyle;
@@ -78,6 +80,8 @@ class SurveyTheme {
     this.ratingSelectedColor = const Color(0xFF19B394),
     this.ratingUnselectedColor = const Color(0xFFE0E0E0),
     this.progressBarColor = const Color(0xFF19B394),
+    this.signaturePenColor = Colors.black87,
+    this.signatureBackgroundColor = Colors.white,
     this.surveyTitleStyle = const TextStyle(
         fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF161616)),
     this.surveyDescriptionStyle = const TextStyle(
@@ -597,6 +601,8 @@ class SurveyTheme {
     Color? ratingSelectedColor,
     Color? ratingUnselectedColor,
     Color? progressBarColor,
+    Color? signaturePenColor,
+    Color? signatureBackgroundColor,
     Color? nextButtonColor,
     Color? prevButtonColor,
     Color? submitButtonColor,
@@ -631,6 +637,8 @@ class SurveyTheme {
       ratingSelectedColor: ratingSelectedColor ?? this.ratingSelectedColor,
       ratingUnselectedColor: ratingUnselectedColor ?? this.ratingUnselectedColor,
       progressBarColor: progressBarColor ?? this.progressBarColor,
+      signaturePenColor: signaturePenColor ?? this.signaturePenColor,
+      signatureBackgroundColor: signatureBackgroundColor ?? this.signatureBackgroundColor,
       nextButtonColor: nextButtonColor ?? this.nextButtonColor,
       prevButtonColor: prevButtonColor ?? this.prevButtonColor,
       submitButtonColor: submitButtonColor ?? this.submitButtonColor,

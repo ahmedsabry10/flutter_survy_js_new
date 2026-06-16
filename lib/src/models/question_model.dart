@@ -114,6 +114,12 @@ class QuestionModel {
   final int? signatureWidth;
   final int? signatureHeight;
 
+  /// SurveyJS `penColor` — pen stroke color as a hex string (e.g. "#FF0000").
+  final String? penColor;
+
+  /// SurveyJS `backgroundColor` — signature pad background as a hex string.
+  final String? signatureBackgroundColor;
+
   // Validators
   final List<SurveyValidator> validators;
 
@@ -201,6 +207,8 @@ class QuestionModel {
     this.maximumFractionDigits,
     this.signatureWidth,
     this.signatureHeight,
+    this.penColor,
+    this.signatureBackgroundColor,
     this.validators = const [],
   });
 
@@ -351,6 +359,8 @@ class QuestionModel {
       maximumFractionDigits: json['maximumFractionDigits'] as int?,
       signatureWidth: json['signatureWidth'] as int?,
       signatureHeight: json['signatureHeight'] as int?,
+      penColor: json['penColor'] as String?,
+      signatureBackgroundColor: json['backgroundColor'] as String?,
       validators: parseValidators(json['validators']),
     );
   }

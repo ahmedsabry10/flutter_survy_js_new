@@ -112,11 +112,34 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
     widget.onChanged(null);
   }
 
+  // Parse a SurveyJS-style hex color string ("#RGB", "#RRGGBB", "#RRGGBBAA").
+  // Returns null if the value is missing or malformed.
+  Color? _parseHexColor(String? hex) {
+    if (hex == null) return null;
+    var v = hex.trim();
+    if (v.isEmpty) return null;
+    if (v.startsWith('#')) v = v.substring(1);
+    if (v.length == 3) {
+      v = v.split('').map((c) => '$c$c').join(); // #abc -> aabbcc
+    }
+    if (v.length == 6) v = 'FF$v'; // add opaque alpha
+    if (v.length != 8) return null;
+    final value = int.tryParse(v, radix: 16);
+    return value == null ? null : Color(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = SurveyTheme.of(context);
     final padHeight =
         widget.question.signatureHeight?.toDouble() ?? 180;
+
+    // Pen / background colors: question JSON wins, then theme, then default.
+    final penColor =
+        _parseHexColor(widget.question.penColor) ?? theme.signaturePenColor;
+    final backgroundColor =
+        _parseHexColor(widget.question.signatureBackgroundColor) ??
+            theme.signatureBackgroundColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +151,7 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
             height: padHeight,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: backgroundColor,
               borderRadius: theme.inputBorderRadius,
               border: Border.all(
                 color: _hasSignature
@@ -153,6 +176,7 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
                     painter: _SignaturePainter(
                       strokes: _strokes,
                       currentStroke: _currentStroke,
+                      penColor: penColor,
                     ),
                     child: _hasSignature
                         ? null
@@ -220,16 +244,18 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
 class _SignaturePainter extends CustomPainter {
   final List<List<Offset>> strokes;
   final List<Offset> currentStroke;
+  final Color penColor;
 
   const _SignaturePainter({
     required this.strokes,
     required this.currentStroke,
+    required this.penColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.black87
+      ..color = penColor
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -261,5 +287,7 @@ class _SignaturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SignaturePainter old) =>
-      old.strokes != strokes || old.currentStroke != currentStroke;
+      old.strokes != strokes ||
+      old.currentStroke != currentStroke ||
+      old.penColor != penColor;
 }
