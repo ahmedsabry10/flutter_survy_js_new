@@ -128,12 +128,14 @@ class _SurveyBody extends StatelessWidget {
           if (controller.isFirstPage && survey.title != null)
             _SurveyHeader(survey: survey, theme: theme),
           if (survey.showProgressBar && survey.isMultiPage)
-            _ProgressBar(
-              progress: controller.progress,
-              theme: theme,
-              currentPage: controller.currentPageIndex + 1,
-              totalPages: survey.pageCount,
-            ),
+            survey.progressBarType == 'buttons'
+                ? _ProgressButtons(controller: controller, theme: theme)
+                : _ProgressBar(
+                    progress: controller.progress,
+                    theme: theme,
+                    currentPage: controller.currentPageIndex + 1,
+                    totalPages: survey.pageCount,
+                  ),
           Expanded(
             child: CustomScrollView(
               physics: const ClampingScrollPhysics(),
@@ -240,6 +242,146 @@ class _ProgressBar extends StatelessWidget {
           minHeight: 4,
         ),
       ],
+    );
+  }
+}
+
+// ─── Progress Buttons ─────────────────────────────────────────────────────────
+// SurveyJS `progressBarType: "buttons"` — a horizontal, scrollable strip of
+// page steps showing each page title, its state (passed / current / upcoming),
+// and tappable for direct navigation.
+
+class _ProgressButtons extends StatelessWidget {
+  final SurveyController controller;
+  final SurveyTheme theme;
+
+  const _ProgressButtons({required this.controller, required this.theme});
+
+  static const double _circle = 28;
+  static const double _stepWidth = 92;
+  static const double _connector = 20;
+
+  @override
+  Widget build(BuildContext context) {
+    final survey = controller.survey;
+
+    // Visible pages paired with their real index in survey.pages.
+    final steps = <MapEntry<int, PageModel>>[];
+    for (var i = 0; i < survey.pages.length; i++) {
+      if (controller.isPageVisible(survey.pages[i])) {
+        steps.add(MapEntry(i, survey.pages[i]));
+      }
+    }
+    final currentIndex = controller.currentPageIndex;
+
+    return Container(
+      color: theme.questionBackgroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var pos = 0; pos < steps.length; pos++) ...[
+              if (pos > 0)
+                Container(
+                  width: _connector,
+                  height: 2,
+                  margin: const EdgeInsets.only(top: _circle / 2 - 1),
+                  color: steps[pos].key <= currentIndex
+                      ? theme.progressBarColor
+                      : theme.borderColor,
+                ),
+              _ProgressStep(
+                number: pos + 1,
+                title: steps[pos].value.title,
+                isPassed: steps[pos].key < currentIndex,
+                isCurrent: steps[pos].key == currentIndex,
+                theme: theme,
+                onTap: () => controller.goToPage(steps[pos].key),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressStep extends StatelessWidget {
+  final int number;
+  final String? title;
+  final bool isPassed;
+  final bool isCurrent;
+  final SurveyTheme theme;
+  final VoidCallback onTap;
+
+  const _ProgressStep({
+    required this.number,
+    required this.title,
+    required this.isPassed,
+    required this.isCurrent,
+    required this.theme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = isPassed || isCurrent;
+    final circleColor =
+        active ? theme.progressBarColor : theme.questionBackgroundColor;
+    final borderColor = active ? theme.progressBarColor : theme.borderColor;
+    final fgColor = active ? Colors.white : theme.hintColor;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: _ProgressButtons._stepWidth,
+        child: Column(
+          children: [
+            Container(
+              width: _ProgressButtons._circle,
+              height: _ProgressButtons._circle,
+              decoration: BoxDecoration(
+                color: circleColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: borderColor,
+                  width: isCurrent ? 2.5 : 1.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: isPassed
+                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  : Text(
+                      '$number',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: fgColor,
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title ?? 'Page $number',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.3,
+                fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
+                color: isCurrent
+                    ? theme.progressBarColor
+                    : (isPassed ? theme.textColor : theme.hintColor),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
