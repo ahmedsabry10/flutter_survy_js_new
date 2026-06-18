@@ -4,6 +4,7 @@ import '../models/question_model.dart';
 import '../models/question_type.dart';
 import '../controller/survey_controller.dart';
 import '../theme/survey_theme.dart';
+import '../utils/survey_html.dart';
 import 'question_wrapper.dart';
 import 'text_question.dart';
 import 'radio_group_question.dart';
@@ -311,7 +312,7 @@ class _HtmlDisplay extends StatelessWidget {
     final theme = SurveyTheme.of(context);
     if (html.trim().isEmpty) return const SizedBox.shrink();
     return Html(
-      data: html,
+      data: normalizeSurveyHtml(html),
       style: {
         'body': Style(
           margin: Margins.zero,

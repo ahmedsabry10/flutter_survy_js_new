@@ -3,6 +3,7 @@ import '../models/survey_model.dart';
 import '../controller/survey_controller.dart';
 import 'package:flutter_html/flutter_html.dart';
 import '../theme/survey_theme.dart';
+import '../utils/survey_html.dart';
 import 'question_widget.dart';
 import 'file_question.dart';
 
@@ -515,7 +516,7 @@ class _CompletedView extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Html(
-            data: html!,
+            data: normalizeSurveyHtml(html!),
             style: {
               'body': Style(
                 margin: Margins.zero,
