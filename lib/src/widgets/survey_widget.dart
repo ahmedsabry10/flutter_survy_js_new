@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/survey_model.dart';
 import '../controller/survey_controller.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../theme/survey_theme.dart';
 import 'question_widget.dart';
 import 'file_question.dart';
@@ -476,10 +477,27 @@ class _CompletedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final message = html != null
-        ? html!.replaceAll(RegExp(r'<[^>]+>'), '')
-        : 'Thank you for completing the survey!';
+    // Custom completedHtml → render it richly.
+    if (html != null && html!.trim().isNotEmpty) {
+      return Container(
+        color: theme.backgroundColor,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Html(
+            data: html!,
+            style: {
+              'body': Style(
+                margin: Margins.zero,
+                padding: HtmlPaddings.zero,
+                color: theme.textColor,
+              ),
+            },
+          ),
+        ),
+      );
+    }
 
+    // Default completion message.
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -488,7 +506,7 @@ class _CompletedView extends StatelessWidget {
           children: [
             Icon(Icons.check_circle_outline_rounded, size: 72, color: theme.primaryColor),
             const SizedBox(height: 20),
-            Text(message,
+            Text('Thank you for completing the survey!',
                 style: theme.surveyTitleStyle.copyWith(fontSize: 20),
                 textAlign: TextAlign.center),
           ],

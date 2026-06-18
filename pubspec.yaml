@@ -15,6 +15,7 @@ dependencies:
   file_picker: ^8.0.0
   mobile_scanner: ^7.2.0   # QR / Barcode scanner
   hijri: ^3.0.0             # Hijri calendar calculations
+  flutter_html: ^3.0.0     # Rich HTML rendering for html / completedHtml
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../models/question_model.dart';
 import '../models/question_type.dart';
 import '../controller/survey_controller.dart';
@@ -308,13 +309,17 @@ class _HtmlDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = SurveyTheme.of(context);
-    final text = html
-        .replaceAll(RegExp(r'<br\s*/?>'), '\n')
-        .replaceAll(RegExp(r'<strong>(.*?)</strong>'), r'\1')
-        .replaceAll(RegExp(r'<[^>]+>'), '');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text(text, style: theme.inputTextStyle),
+    if (html.trim().isEmpty) return const SizedBox.shrink();
+    return Html(
+      data: html,
+      style: {
+        'body': Style(
+          margin: Margins.zero,
+          padding: HtmlPaddings.zero,
+          color: theme.textColor,
+          fontSize: FontSize(theme.inputTextStyle.fontSize ?? 15),
+        ),
+      },
     );
   }
 }

@@ -7,7 +7,9 @@
       "PowerShell(if \\($?\\) { \"remote ok\" })",
       "PowerShell(flutter analyze lib/src/widgets/rating_question.dart 2>&1)",
       "PowerShell(flutter analyze lib/src/widgets/dropdown_question.dart 2>&1)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "PowerShell(flutter pub get 2>&1)",
+      "PowerShell($out = flutter analyze lib 2>&1; \\($out | Select-String -Pattern \"info -\"\\).Count; \"errors:\"; \\($out | Select-String -Pattern \"error -\"\\).Count; \"warnings:\"; \\($out | Select-String -Pattern \"warning -\"\\).Count)"
     ]
   }
 }
