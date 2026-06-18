@@ -34,11 +34,18 @@ class SurveyWidget extends StatefulWidget {
   });
 
   @override
-  State<SurveyWidget> createState() => _SurveyWidgetState();
+  State<SurveyWidget> createState() => SurveyWidgetState();
 }
 
-class _SurveyWidgetState extends State<SurveyWidget> {
+class SurveyWidgetState extends State<SurveyWidget> {
   late final SurveyController _controller;
+
+  /// Validates the current page's required fields, highlighting any invalid
+  /// questions (red title/border). Returns true when every field passes.
+  ///
+  /// Exposed so a host can gate an external submit button (e.g. when the
+  /// survey's own navigation buttons are hidden) via a [GlobalKey].
+  bool validate() => _controller.validateCurrentPage();
 
   @override
   void initState() {
