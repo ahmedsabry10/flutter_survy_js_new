@@ -48,6 +48,37 @@ class SurveyWidgetState extends State<SurveyWidget> {
   /// survey's own navigation buttons are hidden) via a [GlobalKey].
   bool validate() => _controller.validateCurrentPage();
 
+  // ─── Page navigation (for hosts that render their own footer) ─────────────
+  // When the survey's built-in navigation buttons are hidden, drive these from
+  // a custom "Next / Previous / Submit" footer via a [GlobalKey].
+
+  bool get isFirstPage => _controller.isFirstPage;
+  bool get isLastPage => _controller.isLastPage;
+  int get currentPageIndex => _controller.currentPageIndex;
+  int get pageCount => widget.survey.pageCount;
+  bool get isCompleted => _controller.isCompleted;
+
+  /// Current answers map.
+  Map<String, dynamic> get answers => _controller.answers;
+
+  /// Notifies on every page change / answer update — listen to rebuild a
+  /// custom footer (e.g. to switch the button label from "Next" to "Submit").
+  Listenable get listenable => _controller;
+
+  /// Validates the current page, then advances to the next visible page.
+  /// On the last page this validates and completes the survey instead.
+  /// Returns false if validation failed (the page did not change).
+  bool nextPage() => _controller.nextPage();
+
+  /// Goes back to the previous visible page.
+  void prevPage() => _controller.prevPage();
+
+  /// Jumps directly to a page by index.
+  void goToPage(int index) => _controller.goToPage(index);
+
+  /// Validates the current page and marks the survey complete.
+  void complete() => _controller.complete();
+
   @override
   void initState() {
     super.initState();
