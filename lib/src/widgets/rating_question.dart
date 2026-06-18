@@ -3,7 +3,7 @@ import '../models/question_model.dart';
 import '../theme/survey_theme.dart';
 
 /// Renders a SurveyJS `rating` question.
-/// Supports stars (default) and numeric button styles.
+/// Supports `stars`, `smileys`, and `labels` (numeric button) styles.
 class RatingQuestion extends StatelessWidget {
   final QuestionModel question;
   final dynamic currentValue;
@@ -26,7 +26,6 @@ class RatingQuestion extends StatelessWidget {
     final step = question.rateStep ?? 1;
     final selected = currentValue is int ? currentValue as int : int.tryParse(currentValue?.toString() ?? '');
     final rateType = question.rateType ?? 'labels';
-    final useStars = rateType == 'stars' || (max - min <= 4 && rateType != 'labels');
 
     final values = <int>[];
     for (var i = min; i <= max; i += step) {
@@ -58,9 +57,12 @@ class RatingQuestion extends StatelessWidget {
           ),
 
         // Rating items
-        useStars
-            ? _buildStars(values, selected, theme)
-            : _buildButtons(values, selected, theme),
+        if (rateType == 'smileys')
+          _buildSmileys(values, selected, min, max, theme)
+        else if (rateType == 'stars')
+          _buildStars(values, selected, theme)
+        else
+          _buildButtons(values, selected, theme),
       ],
     );
   }
@@ -82,6 +84,44 @@ class RatingQuestion extends StatelessWidget {
         );
       }).toList(),
     );
+  }
+
+  Widget _buildSmileys(
+      List<int> values, int? selected, int min, int max, SurveyTheme theme) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: values.map((v) {
+        final isSelected = selected == v;
+        return GestureDetector(
+          onTap: enabled ? () => onChanged(isSelected ? null : v) : null,
+          child: Icon(
+            _smileyIconFor(v, min, max),
+            size: 40,
+            color: isSelected
+                ? theme.ratingSelectedColor
+                : theme.ratingUnselectedColor,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Picks a smiley face along a sad→happy gradient based on where [v]
+  /// sits in the [min]..[max] range. The lowest value is the saddest face,
+  /// the highest value the happiest.
+  IconData _smileyIconFor(int v, int min, int max) {
+    const icons = [
+      Icons.sentiment_very_dissatisfied,
+      Icons.sentiment_dissatisfied,
+      Icons.sentiment_neutral,
+      Icons.sentiment_satisfied,
+      Icons.sentiment_very_satisfied,
+    ];
+    final span = max - min;
+    final fraction = span <= 0 ? 1.0 : (v - min) / span;
+    final index = (fraction * (icons.length - 1)).round();
+    return icons[index];
   }
 
   Widget _buildButtons(List<int> values, int? selected, SurveyTheme theme) {

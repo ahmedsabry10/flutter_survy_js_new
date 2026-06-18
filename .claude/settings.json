@@ -3,7 +3,9 @@
     "allow": [
       "PowerShell(flutter analyze lib/src/widgets/signature_pad_question.dart)",
       "PowerShell(flutter analyze lib/src/widgets/survey_widget.dart)",
-      "PowerShell(flutter analyze lib/src/widgets/signature_pad_question.dart lib/src/theme/survey_theme.dart lib/src/models/question_model.dart)"
+      "PowerShell(flutter analyze lib/src/widgets/signature_pad_question.dart lib/src/theme/survey_theme.dart lib/src/models/question_model.dart)",
+      "PowerShell(if \\($?\\) { \"remote ok\" })",
+      "PowerShell(flutter analyze lib/src/widgets/rating_question.dart 2>&1)"
     ]
   }
 }
