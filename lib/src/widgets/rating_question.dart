@@ -25,7 +25,7 @@ class RatingQuestion extends StatelessWidget {
     final max = question.rateMax ?? 5;
     final step = question.rateStep ?? 1;
     final selected = currentValue is int ? currentValue as int : int.tryParse(currentValue?.toString() ?? '');
-    final rateType = question.rateType ?? 'labels';
+    final rateType = (question.rateType ?? 'labels').toLowerCase();
 
     final values = <int>[];
     for (var i = min; i <= max; i += step) {
