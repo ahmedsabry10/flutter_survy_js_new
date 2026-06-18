@@ -178,6 +178,10 @@ class _SurveyBody extends StatelessWidget {
                   ),
           Expanded(
             child: CustomScrollView(
+              // Keying by page resets the scroll position to the top whenever
+              // the page changes (next/previous), so each page starts at its
+              // first question instead of inheriting the previous offset.
+              key: ValueKey(controller.currentPageIndex),
               physics: const ClampingScrollPhysics(),
               slivers: [
                 SliverPadding(
