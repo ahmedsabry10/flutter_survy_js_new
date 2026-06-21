@@ -53,6 +53,7 @@ class SurveyFile {
 
 typedef OnUploadFile = Future<List<SurveyFile>> Function(List<SurveyFile> files);
 typedef OnDownloadFile = Future<void> Function(SurveyFile file);
+typedef OnPreviewFile = Future<void> Function(SurveyFile file);
 typedef OnClearFile = Future<bool> Function(SurveyFile file);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ class FileQuestion extends StatefulWidget {
   final ValueChanged<List<SurveyFile>> onChanged;
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
+  final OnPreviewFile? onPreviewFile;
   final OnClearFile? onClearFile;
   final VoidCallback? onPickFiles;
   final bool enabled;
@@ -74,6 +76,7 @@ class FileQuestion extends StatefulWidget {
     this.currentFiles = const [],
     this.onUploadFile,
     this.onDownloadFile,
+    this.onPreviewFile,
     this.onClearFile,
     this.onPickFiles,
     this.enabled = true,
@@ -88,6 +91,7 @@ class _FileQuestionState extends State<FileQuestion> {
   bool _uploading = false;
   String? _errorMessage;
   final Set<String> _downloading = {};
+  final Set<String> _previewing = {};
   final Set<String> _clearing = {};
 
   @override
@@ -184,6 +188,21 @@ class _FileQuestionState extends State<FileQuestion> {
       }
     } finally {
       if (mounted) setState(() => _downloading.remove(file.name));
+    }
+  }
+
+  Future<void> _handlePreview(SurveyFile file) async {
+    if (widget.onPreviewFile == null) return;
+    setState(() => _previewing.add(file.name));
+    try {
+      await widget.onPreviewFile!(file);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Preview failed: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() => _previewing.remove(file.name));
     }
   }
 
@@ -290,9 +309,12 @@ class _FileQuestionState extends State<FileQuestion> {
                 theme: theme,
                 enabled: widget.enabled,
                 isDownloading: _downloading.contains(file.name),
+                isPreviewing: _previewing.contains(file.name),
                 isClearing: _clearing.contains(file.name),
                 canDownload: widget.onDownloadFile != null && file.content != null,
+                canPreview: widget.onPreviewFile != null && file.content != null,
                 onDownload: () => _handleDownload(file),
+                onPreview: () => _handlePreview(file),
                 onClear: () => _handleClear(file),
               )),
         ],
@@ -382,9 +404,12 @@ class _FileItem extends StatelessWidget {
   final SurveyTheme theme;
   final bool enabled;
   final bool isDownloading;
+  final bool isPreviewing;
   final bool isClearing;
   final bool canDownload;
+  final bool canPreview;
   final VoidCallback onDownload;
+  final VoidCallback onPreview;
   final VoidCallback onClear;
 
   const _FileItem({
@@ -392,9 +417,12 @@ class _FileItem extends StatelessWidget {
     required this.theme,
     required this.enabled,
     required this.isDownloading,
+    required this.isPreviewing,
     required this.isClearing,
     required this.canDownload,
+    required this.canPreview,
     required this.onDownload,
+    required this.onPreview,
     required this.onClear,
   });
 
@@ -411,47 +439,56 @@ class _FileItem extends StatelessWidget {
       child: Column(
         children: [
           if (isImage && file.content != null)
-            ClipRRect(
-              borderRadius: BorderRadius.only(
-                topLeft: theme.inputBorderRadius.topLeft,
-                topRight: theme.inputBorderRadius.topRight,
+            GestureDetector(
+              onTap: canPreview ? onPreview : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: theme.inputBorderRadius.topLeft,
+                  topRight: theme.inputBorderRadius.topRight,
+                ),
+                child: Image.network(file.content!,
+                    height: 140, width: double.infinity, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink()),
               ),
-              child: Image.network(file.content!,
-                  height: 140, width: double.infinity, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
+          InkWell(
+            onTap: canPreview ? onPreview : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(_iconFor(file.type), size: 18, color: theme.primaryColor),
                   ),
-                  child: Icon(_iconFor(file.type), size: 18, color: theme.primaryColor),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(file.name,
-                          style: theme.inputTextStyle.copyWith(fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis),
-                      if (file.size != null)
-                        Text(_formatSize(file.size!),
-                            style: theme.questionDescriptionStyle.copyWith(fontSize: 11)),
-                    ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(file.name,
+                            style: theme.inputTextStyle.copyWith(fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis),
+                        if (file.size != null)
+                          Text(_formatSize(file.size!),
+                              style: theme.questionDescriptionStyle.copyWith(fontSize: 11)),
+                      ],
+                    ),
                   ),
-                ),
-                if (canDownload)
-                  _ActionButton(loading: isDownloading, icon: Icons.download_outlined, color: theme.primaryColor, onTap: onDownload),
-                const SizedBox(width: 4),
-                if (enabled)
-                  _ActionButton(loading: isClearing, icon: Icons.close, color: theme.errorColor, onTap: onClear),
-              ],
+                  if (canPreview)
+                    _ActionButton(loading: isPreviewing, icon: Icons.visibility_outlined, color: theme.primaryColor, onTap: onPreview),
+                  if (canPreview && canDownload) const SizedBox(width: 4),
+                  if (canDownload)
+                    _ActionButton(loading: isDownloading, icon: Icons.download_outlined, color: theme.primaryColor, onTap: onDownload),
+                  const SizedBox(width: 4),
+                  if (enabled)
+                    _ActionButton(loading: isClearing, icon: Icons.close, color: theme.errorColor, onTap: onClear),
+                ],
+              ),
             ),
           ),
         ],

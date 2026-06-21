@@ -9,7 +9,15 @@
       "PowerShell(flutter analyze lib/src/widgets/dropdown_question.dart 2>&1)",
       "Bash(git fetch *)",
       "PowerShell(flutter pub get 2>&1)",
-      "PowerShell($out = flutter analyze lib 2>&1; \\($out | Select-String -Pattern \"info -\"\\).Count; \"errors:\"; \\($out | Select-String -Pattern \"error -\"\\).Count; \"warnings:\"; \\($out | Select-String -Pattern \"warning -\"\\).Count)"
+      "PowerShell($out = flutter analyze lib 2>&1; \\($out | Select-String -Pattern \"info -\"\\).Count; \"errors:\"; \\($out | Select-String -Pattern \"error -\"\\).Count; \"warnings:\"; \\($out | Select-String -Pattern \"warning -\"\\).Count)",
+      "Bash(git rev-list *)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(flutter analyze *)",
+      "Bash(git push *)",
+      "PowerShell(flutter analyze lib/src/widgets/survey_widget.dart 2>&1)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

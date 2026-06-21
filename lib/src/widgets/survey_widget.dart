@@ -20,6 +20,7 @@ class SurveyWidget extends StatefulWidget {
   final VoidCallback? onComplete;
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
+  final OnPreviewFile? onPreviewFile;
   final OnClearFile? onClearFile;
 
   const SurveyWidget({
@@ -32,6 +33,7 @@ class SurveyWidget extends StatefulWidget {
     this.onComplete,
     this.onUploadFile,
     this.onDownloadFile,
+    this.onPreviewFile,
     this.onClearFile,
   });
 
@@ -122,6 +124,7 @@ class SurveyWidgetState extends State<SurveyWidget> {
             contentPadding: widget.contentPadding,
             onUploadFile: widget.onUploadFile,
             onDownloadFile: widget.onDownloadFile,
+            onPreviewFile: widget.onPreviewFile,
             onClearFile: widget.onClearFile,
             onSubmit: () {
               widget.onSubmit?.call(_controller.answers);
@@ -143,6 +146,7 @@ class _SurveyBody extends StatelessWidget {
   final VoidCallback onSubmit;
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
+  final OnPreviewFile? onPreviewFile;
   final OnClearFile? onClearFile;
 
   const _SurveyBody({
@@ -152,6 +156,7 @@ class _SurveyBody extends StatelessWidget {
     required this.onSubmit,
     this.onUploadFile,
     this.onDownloadFile,
+    this.onPreviewFile,
     this.onClearFile,
   });
 
@@ -203,6 +208,7 @@ class _SurveyBody extends StatelessWidget {
                             questionNumber: survey.showQuestionNumbers ? entry.key + 1 : null,
                             onUploadFile: onUploadFile,
                             onDownloadFile: onDownloadFile,
+                            onPreviewFile: onPreviewFile,
                             onClearFile: onClearFile,
                           ),
                         );

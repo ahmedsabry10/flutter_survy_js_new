@@ -31,6 +31,7 @@ class QuestionWidget extends StatelessWidget {
   final int? questionNumber;
   final OnUploadFile? onUploadFile;
   final OnDownloadFile? onDownloadFile;
+  final OnPreviewFile? onPreviewFile;
   final OnClearFile? onClearFile;
 
   const QuestionWidget({
@@ -40,6 +41,7 @@ class QuestionWidget extends StatelessWidget {
     this.questionNumber,
     this.onUploadFile,
     this.onDownloadFile,
+    this.onPreviewFile,
     this.onClearFile,
   });
 
@@ -199,6 +201,7 @@ class QuestionWidget extends StatelessWidget {
           enabled: enabled,
           onUploadFile: onUploadFile,
           onDownloadFile: onDownloadFile,
+          onPreviewFile: onPreviewFile,
           onClearFile: onClearFile,
           onChanged: (v) => controller.setAnswer(question.name, v),
         );
