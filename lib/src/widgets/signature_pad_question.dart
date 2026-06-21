@@ -30,6 +30,11 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
   bool _hasSignature = false;
   Size _canvasSize = Size.zero;
 
+  // A signature that arrived as a rendered image instead of our stroke JSON —
+  // e.g. SurveyJS on the web saves a base64 PNG (`data:image/...`) or a URL.
+  // When set, we display this image rather than the (empty) stroke canvas.
+  String? _imageData;
+
   // Convert a raw local pointer position into normalized [0..1] coordinates.
   Offset _normalize(Offset local) {
     final w = _canvasSize.width;
@@ -62,6 +67,15 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
     final value = widget.currentValue;
     if (value is! String || value.isEmpty) return;
     if (value.startsWith('signature_')) return; // legacy placeholder, no data
+    // Image signature (base64 data URI or URL) — SurveyJS / web format. Display
+    // it as an image; there are no strokes to rebuild.
+    if (value.startsWith('data:') ||
+        value.startsWith('http://') ||
+        value.startsWith('https://')) {
+      _imageData = value;
+      _hasSignature = true;
+      return;
+    }
     try {
       final decoded = jsonDecode(value);
       if (decoded is! List) return;
@@ -84,6 +98,8 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
   void _onPointerDown(PointerDownEvent e) {
     if (!widget.enabled) return;
     setState(() {
+      // Drawing over an imported image replaces it with fresh strokes.
+      _imageData = null;
       _currentStroke = [_normalize(e.localPosition)];
       _hasSignature = true;
     });
@@ -107,6 +123,7 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
     setState(() {
       _strokes.clear();
       _currentStroke = [];
+      _imageData = null;
       _hasSignature = false;
     });
     widget.onChanged(null);
@@ -127,6 +144,32 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
     final value = int.tryParse(v, radix: 16);
     return value == null ? null : Color(value);
   }
+
+  // Renders an image-format signature (base64 data URI or URL) to fill the pad.
+  Widget _buildSignatureImage(SurveyTheme theme) {
+    final data = _imageData!;
+    Widget image;
+    if (data.startsWith('data:')) {
+      final comma = data.indexOf(',');
+      final b64 = comma >= 0 ? data.substring(comma + 1) : data;
+      try {
+        image = Image.memory(base64Decode(b64), fit: BoxFit.contain);
+      } catch (_) {
+        return _imageError(theme);
+      }
+    } else {
+      image = Image.network(
+        data,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _imageError(theme),
+      );
+    }
+    return Padding(padding: const EdgeInsets.all(8), child: Center(child: image));
+  }
+
+  Widget _imageError(SurveyTheme theme) => Center(
+        child: Icon(Icons.broken_image_outlined, size: 28, color: theme.hintColor),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -178,22 +221,24 @@ class _SignaturePadQuestionState extends State<SignaturePadQuestion> {
                       currentStroke: _currentStroke,
                       penColor: penColor,
                     ),
-                    child: _hasSignature
-                        ? null
-                        : Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.draw_outlined,
-                                    size: 28, color: theme.hintColor),
-                                const SizedBox(height: 6),
-                                Text('Sign here',
-                                    style: TextStyle(
-                                        color: theme.hintColor,
-                                        fontSize: 14)),
-                              ],
-                            ),
-                          ),
+                    child: _imageData != null
+                        ? _buildSignatureImage(theme)
+                        : _hasSignature
+                            ? null
+                            : Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.draw_outlined,
+                                        size: 28, color: theme.hintColor),
+                                    const SizedBox(height: 6),
+                                    Text('Sign here',
+                                        style: TextStyle(
+                                            color: theme.hintColor,
+                                            fontSize: 14)),
+                                  ],
+                                ),
+                              ),
                   ),
                 );
               },
